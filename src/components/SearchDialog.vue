@@ -24,7 +24,7 @@
             </el-input>
           </el-form-item>
         </el-col>
-        
+
         <el-col :span="8">
           <el-form-item label="排序">
             <el-select v-model="searchForm.sort" placeholder="请选择">
@@ -36,7 +36,7 @@
           </el-form-item>
         </el-col>
       </el-row>
-      
+
       <el-row :gutter="20">
         <el-col :span="24">
           <el-form-item label="条目类型">
@@ -50,7 +50,7 @@
           </el-form-item>
         </el-col>
       </el-row>
-      
+
       <el-row>
         <el-col :span="24">
           <el-form-item label=" " class="search-btn-group">
@@ -63,31 +63,33 @@
         </el-col>
       </el-row>
     </el-form>
-    
+
     <el-divider />
-    
+
     <!-- 搜索结果 -->
     <div class="search-results" v-loading="loading">
       <div v-if="!hasSearched" class="empty-tips">
-        <el-empty description="请输入条目名称并选择类型开始搜索" :image-size="100" />
+        <el-empty
+          description="请输入条目名称并选择类型开始搜索"
+          :image-size="100"
+        />
       </div>
-      
+
       <div v-else-if="resultList.length === 0" class="empty-tips">
-        <el-empty description="未找到相关条目，请尝试其他关键词或类型" :image-size="100" />
+        <el-empty
+          description="未找到相关条目，请尝试其他关键词或类型"
+          :image-size="100"
+        />
       </div>
-      
+
       <div v-else class="result-list">
         <div class="result-header">
           <span class="result-count">共找到 {{ total }} 个条目</span>
         </div>
-        
+
         <el-scrollbar height="450px">
           <div class="result-items">
-            <div 
-              v-for="item in resultList" 
-              :key="item.id" 
-              class="result-item"
-            >
+            <div v-for="item in resultList" :key="item.id" class="result-item">
               <div class="item-content">
                 <div class="item-cover">
                   <el-image
@@ -102,19 +104,21 @@
                     </template>
                   </el-image>
                 </div>
-                
+
                 <div class="item-info">
                   <div class="item-title">
                     <h3>{{ item.name_cn || item.name }}</h3>
-                    <p class="item-name-origin" v-if="item.name_cn && item.name !== item.name_cn">
+                    <p
+                      class="item-name-origin"
+                      v-if="item.name_cn && item.name !== item.name_cn"
+                    >
                       {{ item.name }}
                     </p>
                   </div>
-                  
+
                   <div class="item-meta">
                     <el-space wrap>
                       <el-tag v-if="item.date" size="small" type="info">
-                        <el-icon><Calendar /></el-icon>
                         {{ item.date }}
                       </el-tag>
                       <el-tag v-if="item.rank" size="small" type="warning">
@@ -127,12 +131,12 @@
                       </el-tag>
                     </el-space>
                   </div>
-                  
+
                   <div class="item-summary" v-if="item.summary">
                     <p>{{ truncateSummary(item.summary, 100) }}</p>
                   </div>
                 </div>
-                
+
                 <div class="item-actions">
                   <el-button
                     v-if="isGameAdded(item.id)"
@@ -155,7 +159,7 @@
             </div>
           </div>
         </el-scrollbar>
-        
+
         <!-- 分页 -->
         <div class="pagination">
           <el-pagination
@@ -174,171 +178,182 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, Picture, Calendar, TrendCharts, StarFilled, Plus } from '@element-plus/icons-vue'
-import { searchSubjects } from '@/api/bangumi'
+import { ref, computed, watch } from "vue";
+import { ElMessage } from "element-plus";
+import {
+  Search,
+  Picture,
+  Calendar,
+  TrendCharts,
+  StarFilled,
+  Plus,
+} from "@element-plus/icons-vue";
+import { searchSubjects } from "@/api/bangumi";
 
 // Props
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   existingGameIds: {
     type: Array,
-    default: () => []
-  }
-})
+    default: () => [],
+  },
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'add-game'])
+const emit = defineEmits(["update:visible", "add-game"]);
 
 // 对话框显示状态
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (val) => emit('update:visible', val)
-})
+  set: (val) => emit("update:visible", val),
+});
 
 // 搜索表单 - 默认选中游戏类型
 const searchForm = ref({
-  keyword: '',
-  sort: 'match',
-  types: [4] // 默认选中游戏
-})
+  keyword: "",
+  sort: "match",
+  types: [4], // 默认选中游戏
+});
 
 // 搜索状态
-const loading = ref(false)
-const hasSearched = ref(false)
-const resultList = ref([])
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(20)
+const loading = ref(false);
+const hasSearched = ref(false);
+const resultList = ref([]);
+const total = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(20);
 
 // 判断游戏是否已添加
 const isGameAdded = (gameId) => {
-  return props.existingGameIds.includes(gameId)
-}
+  return props.existingGameIds.includes(gameId);
+};
 
 // 获取类型名称
 const getTypeName = (types) => {
-  if (!types || types.length === 0) return '所有类型'
+  if (!types || types.length === 0) return "所有类型";
   const typeMap = {
-    1: '书籍',
-    2: '动画',
-    3: '音乐',
-    4: '游戏',
-    6: '三次元'
-  }
-  return types.map(t => typeMap[t] || '未知').join('、')
-}
+    1: "书籍",
+    2: "动画",
+    3: "音乐",
+    4: "游戏",
+    6: "三次元",
+  };
+  return types.map((t) => typeMap[t] || "未知").join("、");
+};
 
 // 重置表单
 const handleReset = () => {
   searchForm.value = {
-    keyword: '',
-    sort: 'match',
-    types: [4] // 重置时也默认选中游戏
-  }
-  resultList.value = []
-  total.value = 0
-  hasSearched.value = false
-  currentPage.value = 1
-}
+    keyword: "",
+    sort: "match",
+    types: [4], // 重置时也默认选中游戏
+  };
+  resultList.value = [];
+  total.value = 0;
+  hasSearched.value = false;
+  currentPage.value = 1;
+};
 
 // 执行搜索
 const handleSearch = async () => {
   if (!searchForm.value.keyword.trim()) {
-    ElMessage.warning('请输入条目名称')
-    return
+    ElMessage.warning("请输入条目名称");
+    return;
   }
-  
+
   if (!searchForm.value.types || searchForm.value.types.length === 0) {
-    ElMessage.warning('请至少选择一种条目类型')
-    return
+    ElMessage.warning("请至少选择一种条目类型");
+    return;
   }
-  
-  loading.value = true
-  hasSearched.value = true
-  
+
+  loading.value = true;
+  hasSearched.value = true;
+
   try {
     // 构建筛选条件 - 使用用户选择的类型
     const filter = {
-      type: searchForm.value.types
-    }
-    
+      type: searchForm.value.types,
+    };
+
     // 调用搜索 API
-    const offset = (currentPage.value - 1) * pageSize.value
+    const offset = (currentPage.value - 1) * pageSize.value;
     const res = await searchSubjects({
       keyword: searchForm.value.keyword,
       sort: searchForm.value.sort,
       limit: pageSize.value,
       offset: offset,
-      filter: filter
-    })
-    
+      filter: filter,
+    });
+
     // 处理返回数据
     if (res && res.data) {
-      resultList.value = res.data
-      total.value = res.total || 0
-      
+      resultList.value = res.data;
+      total.value = res.total || 0;
+
       if (total.value > 0) {
-        const typeText = getTypeName(searchForm.value.types)
-        ElMessage.success(`找到 ${total.value} 个条目（${typeText}）`)
+        const typeText = getTypeName(searchForm.value.types);
+        ElMessage.success(`找到 ${total.value} 个条目（${typeText}）`);
       } else {
-        ElMessage.info('未找到相关条目')
+        ElMessage.info("未找到相关条目");
       }
     } else {
-      resultList.value = []
-      total.value = 0
-      ElMessage.info('未找到相关条目')
+      resultList.value = [];
+      total.value = 0;
+      ElMessage.info("未找到相关条目");
     }
   } catch (error) {
-    console.error('搜索失败:', error)
-    ElMessage.error('搜索失败，请稍后重试')
-    resultList.value = []
-    total.value = 0
+    console.error("搜索失败:", error);
+    ElMessage.error("搜索失败，请稍后重试");
+    resultList.value = [];
+    total.value = 0;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 添加游戏
 const handleAddGame = (game) => {
-  emit('add-game', game)
-}
+  emit("add-game", game);
+};
 
 // 分页大小改变
 const handleSizeChange = (val) => {
-  pageSize.value = val
-  currentPage.value = 1
-  handleSearch()
-}
+  pageSize.value = val;
+  currentPage.value = 1;
+  handleSearch();
+};
 
 // 当前页改变
 const handleCurrentChange = (val) => {
-  currentPage.value = val
-  handleSearch()
-}
+  currentPage.value = val;
+  handleSearch();
+};
 
 // 截断简介
 const truncateSummary = (text, maxLength = 100) => {
-  if (!text) return ''
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
 
 // 监听对话框关闭
 watch(dialogVisible, (val) => {
   if (!val) {
     // 对话框关闭时不清空搜索结果
   }
-})
+});
 </script>
 
 <style scoped>
 .search-dialog :deep(.el-dialog__body) {
   padding: 20px;
+}
+
+.search-dialog :deep(.el-space_item) {
+  display: flex;
 }
 
 .search-form {
@@ -483,4 +498,3 @@ watch(dialogVisible, (val) => {
   justify-content: center;
 }
 </style>
-

@@ -150,8 +150,14 @@ const saveToStorage = () => {
       JSON.stringify(gameLibrary.value)
     );
     localStorage.setItem(STORAGE_KEY_CHART, JSON.stringify(gamesInChart.value));
-    localStorage.setItem(STORAGE_KEY_AXIS_LABELS, JSON.stringify(axisLabels.value));
-    localStorage.setItem(STORAGE_KEY_CHART_TITLE, JSON.stringify(chartTitle.value));
+    localStorage.setItem(
+      STORAGE_KEY_AXIS_LABELS,
+      JSON.stringify(axisLabels.value)
+    );
+    localStorage.setItem(
+      STORAGE_KEY_CHART_TITLE,
+      JSON.stringify(chartTitle.value)
+    );
   } catch (error) {
     console.error("保存本地数据失败:", error);
   }
@@ -166,28 +172,28 @@ const gamesInChart = ref([]);
 // 坐标轴标签
 const axisLabels = ref({
   horizontal: {
-    positive: '好玩',
-    negative: '不好玩'
+    positive: "好玩",
+    negative: "不好玩",
   },
   vertical: {
-    positive: '爱玩',
-    negative: '不爱玩'
-  }
+    positive: "爱玩",
+    negative: "不爱玩",
+  },
 });
 
 // 图表标题
 const chartTitle = ref({
-  text: '',
+  text: "",
   fontSize: 24,
-  positionX: 'center',
-  positionY: 'top',
-  color: '#303133'
+  positionX: "center",
+  positionY: "top",
+  color: "#303133",
 });
 
 // 默认游戏大小（从本地存储加载）
 const getDefaultGameSize = () => {
   try {
-    const saved = localStorage.getItem('bangumi_default_game_size');
+    const saved = localStorage.getItem("bangumi_default_game_size");
     if (saved) {
       const size = parseInt(saved, 10);
       if (size >= 40 && size <= 200) {
@@ -195,7 +201,7 @@ const getDefaultGameSize = () => {
       }
     }
   } catch (error) {
-    console.error('加载默认游戏大小失败:', error);
+    console.error("加载默认游戏大小失败:", error);
   }
   return 60; // 默认值
 };
@@ -265,12 +271,12 @@ const handleImportData = (data) => {
     if (data.gamesInChart) {
       gamesInChart.value = data.gamesInChart;
     }
-    
+
     // 立即保存到本地存储
     saveToStorage();
   } catch (error) {
-    console.error('导入数据失败:', error);
-    ElMessage.error('导入数据失败：' + error.message);
+    console.error("导入数据失败:", error);
+    ElMessage.error("导入数据失败：" + error.message);
   }
 };
 
@@ -327,12 +333,12 @@ const handleRemoveFromChart = (gameId) => {
 // 从游戏库中删除游戏
 const handleDeleteGame = (gameId) => {
   ElMessageBox.confirm(
-    '确定要删除该游戏吗？如果该游戏在坐标系中，也会一并移除。',
-    '删除确认',
+    "确定要删除该游戏吗？如果该游戏在坐标系中，也会一并移除。",
+    "删除确认",
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
     }
   )
     .then(() => {
@@ -341,13 +347,13 @@ const handleDeleteGame = (gameId) => {
       if (libraryIndex !== -1) {
         const gameName = gameLibrary.value[libraryIndex].name;
         gameLibrary.value.splice(libraryIndex, 1);
-        
+
         // 如果在坐标系中，也要移除
         const chartIndex = gamesInChart.value.findIndex((g) => g.id === gameId);
         if (chartIndex !== -1) {
           gamesInChart.value.splice(chartIndex, 1);
         }
-        
+
         ElMessage.success(`已删除《${gameName}》`);
       }
     })
@@ -370,18 +376,18 @@ const handleBringToFront = (gameId) => {
 // 批量添加游戏
 const handleBatchAddGames = (games) => {
   let addedCount = 0;
-  games.forEach(game => {
+  games.forEach((game) => {
     // 检查是否已存在
     if (!existingGameIds.value.includes(game.id)) {
       gameLibrary.value.push(game);
       addedCount++;
     }
   });
-  
+
   if (addedCount > 0) {
     ElMessage.success(`成功导入 ${addedCount} 个条目`);
   } else {
-    ElMessage.info('所有条目都已在游戏库中');
+    ElMessage.info("所有条目都已在游戏库中");
   }
 };
 
@@ -447,7 +453,8 @@ onMounted(() => {
 
 .chart-section {
   width: 100%;
-  min-height: calc(100vh - 120px);
+  min-height: calc(100vh);
+  height: 100vh;
   background: #fff;
   display: flex;
   align-items: center;

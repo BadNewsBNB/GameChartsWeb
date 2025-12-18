@@ -226,6 +226,11 @@
       >
         {{ chartTitle.text }}
       </div>
+
+      <!-- 水印 - 右下角 -->
+      <div class="watermark">
+        games.marblephantasm.org
+      </div>
     </div>
   </div>
 </template>
@@ -852,5 +857,18 @@ onUnmounted(() => {
 
 .zoom-controls :deep(.el-button) {
   font-weight: 600;
+}
+
+.watermark {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.25);
+  font-family: Arial, sans-serif;
+  user-select: none;
+  pointer-events: none;
+  z-index: 5;
+  letter-spacing: 0.5px;
 }
 </style>
