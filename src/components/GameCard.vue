@@ -33,8 +33,8 @@
       </div>
     </div>
     
-    <div class="game-name" :title="game.name">
-      {{ game.name }}
+    <div class="game-name" :title="game.name || '未命名'">
+      {{ game.name || '未命名' }}
     </div>
   </div>
 </template>

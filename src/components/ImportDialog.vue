@@ -18,7 +18,7 @@
       <p>3. 选择要导入的条目，点击"批量添加"</p>
     </el-alert>
 
-    <el-form :model="form" label-width="100px">
+    <el-form :model="form" label-width="150px">
       <el-row :gutter="20">
         <el-col :span="16">
           <el-form-item label="Access Token" required>

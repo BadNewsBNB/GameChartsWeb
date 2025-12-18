@@ -49,10 +49,16 @@
 
         <el-divider style="margin: 12px 0" />
 
-        <div class="game-list">
+        <div
+          class="game-list"
+          @drop="handleFileDrop"
+          @dragover.prevent="handleDragOver"
+          @dragleave="handleDragLeave"
+          :class="{ 'drag-over': isDragOver }"
+        >
           <el-empty
             v-if="gameLibrary.length === 0"
-            description="暂无游戏，点击上方按钮添加"
+            description="暂无游戏，点击上方按钮添加或拖拽图片到此处"
             :image-size="100"
           />
 
@@ -69,6 +75,50 @@
               />
             </div>
           </el-scrollbar>
+
+          <!-- 拖拽提示遮罩 -->
+          <div v-if="isDragOver" class="drag-overlay">
+            <div class="drag-hint">
+              <el-icon :size="48" color="#409eff"><Plus /></el-icon>
+              <p>释放以添加图片</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部信息栏 -->
+        <div class="footer-info">
+          <p class="info-line">
+            <a
+              href="https://github.com/BadNewsBNB"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Booo
+            </a>
+            <span> made with Cursor</span>
+            <a
+              href="https://github.com/BadNewsBNB/GameChartsWeb"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="https://img.shields.io/github/stars/BadNewsBNB/GameChartsWeb?style=social"
+                alt="GitHub Stars"
+              />
+            </a>
+          </p>
+          <p class="info-line">
+            <span>Powered by </span>
+            <a href="https://bgm.tv" target="_blank" rel="noopener noreferrer">
+              Bangumi
+            </a>
+          </p>
+          <p class="info-line" style="margin-top: 12px">
+            <img
+              src="https://hits.sh/games.marblephantasm.org.svg?style=flat&label=visitors&color=409eff&labelColor=555"
+              alt="访问统计"
+            />
+          </p>
         </div>
       </div>
     </el-container>
@@ -215,6 +265,9 @@ const importDialogVisible = ref(false);
 // 设置对话框显示状态
 const settingsDialogVisible = ref(false);
 
+// 拖拽状态
+const isDragOver = ref(false);
+
 // 计算滚动区域高度
 const scrollbarHeight = computed(() => {
   return "calc(100vh - 180px)";
@@ -262,8 +315,15 @@ const handleImportData = (data) => {
     if (data.axisLabels) {
       axisLabels.value = data.axisLabels;
     }
+    // 导入图表标题（确保完整复制对象）
     if (data.chartTitle) {
-      chartTitle.value = data.chartTitle;
+      chartTitle.value = {
+        text: data.chartTitle.text || "",
+        fontSize: data.chartTitle.fontSize || 24,
+        positionX: data.chartTitle.positionX || "center",
+        positionY: data.chartTitle.positionY || "top",
+        color: data.chartTitle.color || "#303133",
+      };
     }
     if (data.gameLibrary) {
       gameLibrary.value = data.gameLibrary;
@@ -391,6 +451,95 @@ const handleBatchAddGames = (games) => {
   }
 };
 
+// 处理文件拖拽进入
+const handleDragOver = (event) => {
+  event.preventDefault();
+  // 检查是否包含文件
+  if (event.dataTransfer.types.includes("Files")) {
+    isDragOver.value = true;
+  }
+};
+
+// 处理文件拖拽离开
+const handleDragLeave = (event) => {
+  event.preventDefault();
+  // 只有离开整个区域时才取消高亮
+  if (event.target.classList.contains("game-list")) {
+    isDragOver.value = false;
+  }
+};
+
+// 处理文件拖放
+const handleFileDrop = async (event) => {
+  event.preventDefault();
+  isDragOver.value = false;
+
+  const files = Array.from(event.dataTransfer.files);
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+
+  if (imageFiles.length === 0) {
+    ElMessage.warning("请拖入图片文件");
+    return;
+  }
+
+  // 处理每个图片文件
+  let addedCount = 0;
+  for (const file of imageFiles) {
+    try {
+      await addImageAsGame(file);
+      addedCount++;
+    } catch (error) {
+      console.error("处理图片失败:", error);
+      ElMessage.error(`处理图片 ${file.name} 失败`);
+    }
+  }
+
+  if (addedCount > 0) {
+    ElMessage.success(`成功添加 ${addedCount} 个图片`);
+  }
+};
+
+// 将图片文件添加为游戏
+const addImageAsGame = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        // 生成唯一ID（使用时间戳和随机数）
+        const uniqueId = `local_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+
+        // 从文件名提取游戏名（去除扩展名）
+        const fileName = file.name.replace(/\.[^/.]+$/, "");
+
+        // 创建游戏对象
+        const newGame = {
+          id: uniqueId,
+          name: "", // 名称为空，用户可以后续通过右键编辑
+          nameOrigin: fileName, // 原始文件名存储在这里
+          image: e.target.result, // base64 图片数据
+          type: "custom", // 标记为自定义图片
+          date: new Date().toISOString().split("T")[0],
+          score: null,
+        };
+
+        gameLibrary.value.push(newGame);
+        resolve(newGame);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error("读取图片失败"));
+    };
+
+    reader.readAsDataURL(file);
+  });
+};
+
 // 监听数据变化并保存
 watch(
   [gameLibrary, gamesInChart, axisLabels, chartTitle],
@@ -498,6 +647,42 @@ onMounted(() => {
 .game-list {
   flex: 1;
   overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.game-list.drag-over {
+  background: rgba(64, 158, 255, 0.05);
+  border: 2px dashed #409eff;
+  border-radius: 8px;
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.drag-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #409eff;
+}
+
+.drag-hint p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .game-cards {
@@ -506,5 +691,38 @@ onMounted(() => {
   gap: 10px;
   padding-right: 8px;
   padding-bottom: 20px;
+}
+
+.footer-info {
+  padding: 0px 0 20px;
+  text-align: center;
+  border-top: 1px solid #e4e7ed;
+  margin-top: auto;
+}
+
+.info-line {
+  margin: 2px 0;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.info-line a {
+  color: #409eff;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.info-line a:hover {
+  color: #66b1ff;
+  text-decoration: underline;
+}
+
+.info-line span {
+  color: #909399;
 }
 </style>

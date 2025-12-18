@@ -3,30 +3,31 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
-        <el-button @click="openSettings" :icon="Setting">
-          图表设置
-        </el-button>
+        <el-button @click="openSettings" :icon="Setting"> 图表设置 </el-button>
       </div>
       <div class="toolbar-right">
         <el-button type="primary" @click="exportImage" :icon="Download">
-          导出图片
+          生成{{ chartTitle.text ? chartTitle.text : "你的图表" }}
         </el-button>
       </div>
     </div>
 
-    <div 
-      class="coordinate-chart" 
+    <div
+      class="coordinate-chart"
       ref="chartContainer"
-      :style="{ transform: `scale(${scale})`, transformOrigin: 'center center' }"
+      :style="{
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+      }"
     >
       <!-- 图表标题（顶部） -->
-      <div 
-        v-if="chartTitle.text && chartTitle.positionY === 'top'" 
+      <div
+        v-if="chartTitle.text && chartTitle.positionY === 'top'"
         class="chart-title"
         :style="{
           fontSize: chartTitle.fontSize + 'px',
           textAlign: chartTitle.positionX,
-          color: chartTitle.color
+          color: chartTitle.color,
         }"
       >
         {{ chartTitle.text }}
@@ -70,29 +71,29 @@
           stroke-width="2"
         />
 
-         <!-- 象限标签 -->
-         <text :x="centerX + 20" y="30" class="axis-label" fill="#67C23A">
-           {{ axisLabels.vertical.positive }}
-         </text>
-         <text
-           :x="centerX + 20"
-           :y="height - 20"
-           class="axis-label"
-           fill="#F56C6C"
-         >
-           {{ axisLabels.vertical.negative }}
-         </text>
-         <text x="20" :y="centerY - 10" class="axis-label" fill="#F56C6C">
-           {{ axisLabels.horizontal.negative }}
-         </text>
-         <text
-           :x="width - 80"
-           :y="centerY - 10"
-           class="axis-label"
-           fill="#67C23A"
-         >
-           {{ axisLabels.horizontal.positive }}
-         </text>
+        <!-- 象限标签 -->
+        <text :x="centerX + 20" y="30" class="axis-label" fill="#67C23A">
+          {{ axisLabels.vertical.positive }}
+        </text>
+        <text
+          :x="centerX + 20"
+          :y="height - 20"
+          class="axis-label"
+          fill="#F56C6C"
+        >
+          {{ axisLabels.vertical.negative }}
+        </text>
+        <text x="20" :y="centerY - 10" class="axis-label" fill="#F56C6C">
+          {{ axisLabels.horizontal.negative }}
+        </text>
+        <text
+          :x="width - 80"
+          :y="centerY - 10"
+          class="axis-label"
+          fill="#67C23A"
+        >
+          {{ axisLabels.horizontal.positive }}
+        </text>
 
         <!-- 坐标轴箭头 -->
         <polygon
@@ -145,92 +146,94 @@
         </div>
       </div>
 
-       <!-- 右键菜单 -->
-       <teleport to="body">
-         <div
-           v-if="contextMenu.visible"
-           class="context-menu"
-           :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-           @click="hideContextMenu"
-         >
-           <div class="menu-item" @click="bringToFront">
-             <el-icon><Top /></el-icon>
-             <span>置顶</span>
-           </div>
-           <div class="menu-item" @click="resetSize">
-             <el-icon><RefreshLeft /></el-icon>
-             <span>重置大小</span>
-           </div>
-           <el-divider style="margin: 4px 0" />
-           <div class="menu-item danger" @click="removeGame">
-             <el-icon><Delete /></el-icon>
-             <span>移除</span>
-           </div>
-         </div>
-       </teleport>
-       
-       <!-- 缩放控制 -->
-       <div class="zoom-controls">
-         <div class="control-group">
-           <span class="control-label">整体缩放</span>
-           <el-button-group>
-             <el-button :icon="ZoomOut" @click="zoomOut" :disabled="scale <= 0.5">
+      <!-- 右键菜单 -->
+      <teleport to="body">
+        <div
+          v-if="contextMenu.visible"
+          class="context-menu"
+          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+          @click="hideContextMenu"
+        >
+          <div class="menu-item" @click="bringToFront">
+            <el-icon><Top /></el-icon>
+            <span>置顶</span>
+          </div>
+          <div class="menu-item" @click="resetSize">
+            <el-icon><RefreshLeft /></el-icon>
+            <span>重置大小</span>
+          </div>
+          <el-divider style="margin: 4px 0" />
+          <div class="menu-item danger" @click="removeGame">
+            <el-icon><Delete /></el-icon>
+            <span>移除</span>
+          </div>
+        </div>
+      </teleport>
+
+      <!-- 缩放控制 -->
+      <div class="zoom-controls">
+        <div class="control-group">
+          <span class="control-label">整体缩放</span>
+          <el-button-group>
+            <el-button
+              :icon="ZoomOut"
+              @click="zoomOut"
+              :disabled="scale <= 0.5"
+            >
               -
-             </el-button>
-             <el-button @click="resetZoom">
-               {{ Math.round(scale * 100) }}%
-             </el-button>
-             <el-button :icon="ZoomIn" @click="zoomIn" :disabled="scale >= 2">
+            </el-button>
+            <el-button @click="resetZoom">
+              {{ Math.round(scale * 100) }}%
+            </el-button>
+            <el-button :icon="ZoomIn" @click="zoomIn" :disabled="scale >= 2">
               +
-             </el-button>
-           </el-button-group>
-         </div>
-         
-         <el-divider direction="vertical" style="height: 32px; margin: 0 8px" />
-         
-         <div class="control-group">
-           <span class="control-label">图标大小</span>
-           <el-button-group>
-             <el-button 
-               :icon="ZoomOut" 
-               @click="shrinkAllGames" 
-               :disabled="!canShrinkAll"
-               size="small"
-             >
+            </el-button>
+          </el-button-group>
+        </div>
+
+        <el-divider direction="vertical" style="height: 32px; margin: 0 8px" />
+
+        <div class="control-group">
+          <span class="control-label">图标大小</span>
+          <el-button-group>
+            <el-button
+              :icon="ZoomOut"
+              @click="shrinkAllGames"
+              :disabled="!canShrinkAll"
+              size="small"
+            >
               缩小
-             </el-button>
-             <el-button size="small" @click="resetAllGamesSize">
-               {{ defaultGameSize }}px
-             </el-button>
-             <el-button 
-               :icon="ZoomIn" 
-               @click="enlargeAllGames" 
-               :disabled="!canEnlargeAll"
-               size="small"
-             >
+            </el-button>
+            <el-button size="small" @click="resetAllGamesSize">
+              {{ defaultGameSize }}px
+            </el-button>
+            <el-button
+              :icon="ZoomIn"
+              @click="enlargeAllGames"
+              :disabled="!canEnlargeAll"
+              size="small"
+            >
               放大
-             </el-button>
-           </el-button-group>
-         </div>
-       </div>
+            </el-button>
+          </el-button-group>
+        </div>
+      </div>
 
       <!-- 图表标题（底部） -->
-      <div 
-        v-if="chartTitle.text && chartTitle.positionY === 'bottom'" 
+      <div
+        v-if="chartTitle.text && chartTitle.positionY === 'bottom'"
         class="chart-title chart-title-bottom"
         :style="{
           fontSize: chartTitle.fontSize + 'px',
           textAlign: chartTitle.positionX,
-          color: chartTitle.color
+          color: chartTitle.color,
         }"
       >
         {{ chartTitle.text }}
       </div>
 
       <!-- 水印 - 右下角 -->
-      <div class="watermark">
-        games.marblephantasm.org
-      </div>
+      <div class="watermark">games.marblephantasm.org</div>
     </div>
   </div>
 </template>
@@ -258,15 +261,20 @@ const props = defineProps({
   },
   axisLabels: {
     type: Object,
-    required: true
+    required: true,
   },
   chartTitle: {
     type: Object,
-    required: true
-  }
+    required: true,
+  },
 });
 
-const emit = defineEmits(["update-game", "remove-game", "bring-to-front", "open-settings"]);
+const emit = defineEmits([
+  "update-game",
+  "remove-game",
+  "bring-to-front",
+  "open-settings",
+]);
 
 // 容器引用
 const chartContainer = ref(null);
@@ -286,13 +294,13 @@ const defaultGameSize = ref(60);
 const canEnlargeAll = computed(() => {
   if (props.games.length === 0) return false;
   // 只要有任何一个图标小于200px，就可以继续放大
-  return props.games.some(g => (g.size || defaultGameSize.value) < 200);
+  return props.games.some((g) => (g.size || defaultGameSize.value) < 200);
 });
 
 const canShrinkAll = computed(() => {
   if (props.games.length === 0) return false;
   // 只要有任何一个图标大于40px，就可以继续缩小
-  return props.games.some(g => (g.size || defaultGameSize.value) > 40);
+  return props.games.some((g) => (g.size || defaultGameSize.value) > 40);
 });
 
 // 中心点
@@ -325,13 +333,63 @@ const exportImage = async () => {
     ElMessage.info("正在生成图片...");
 
     // 隐藏不需要导出的元素（缩放控制、调整大小手柄、游戏名称徽章）
-    const zoomControls = chartContainer.value.querySelector('.zoom-controls');
-    const resizeHandles = chartContainer.value.querySelectorAll('.resize-handle');
-    const gameNameBadges = chartContainer.value.querySelectorAll('.game-name-badge');
+    const zoomControls = chartContainer.value.querySelector(".zoom-controls");
+    const resizeHandles =
+      chartContainer.value.querySelectorAll(".resize-handle");
+    const gameNameBadges =
+      chartContainer.value.querySelectorAll(".game-name-badge");
+
+    if (zoomControls) zoomControls.style.display = "none";
+    resizeHandles.forEach((handle) => (handle.style.display = "none"));
+    gameNameBadges.forEach((badge) => (badge.style.display = "none"));
+
+    // 处理图片的 object-fit，因为 html2canvas 不支持 object-fit
+    const gameImages = chartContainer.value.querySelectorAll(".game-image img");
+    const imageBackups = [];
     
-    if (zoomControls) zoomControls.style.display = 'none';
-    resizeHandles.forEach(handle => handle.style.display = 'none');
-    gameNameBadges.forEach(badge => badge.style.display = 'none');
+    gameImages.forEach((img) => {
+      // 保存原始样式
+      const backup = {
+        element: img,
+        originalWidth: img.style.width,
+        originalHeight: img.style.height,
+        originalObjectFit: img.style.objectFit,
+      };
+      imageBackups.push(backup);
+
+      // 获取容器尺寸
+      const container = img.closest(".game-item");
+      if (container) {
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+
+        // 计算缩放比例（模拟 object-fit: cover）
+        const containerRatio = containerWidth / containerHeight;
+        const imageRatio = naturalWidth / naturalHeight;
+
+        let renderWidth, renderHeight;
+        if (imageRatio > containerRatio) {
+          // 图片更宽，以高度为准
+          renderHeight = containerHeight;
+          renderWidth = (naturalWidth / naturalHeight) * containerHeight;
+        } else {
+          // 图片更高，以宽度为准
+          renderWidth = containerWidth;
+          renderHeight = (naturalHeight / naturalWidth) * containerWidth;
+        }
+
+        // 设置图片样式以模拟 cover 效果
+        img.style.width = `${renderWidth}px`;
+        img.style.height = `${renderHeight}px`;
+        img.style.objectFit = "none";
+        img.style.objectPosition = "center";
+        img.style.position = "relative";
+        img.style.left = `${(containerWidth - renderWidth) / 2}px`;
+        img.style.top = `${(containerHeight - renderHeight) / 2}px`;
+      }
+    });
 
     const canvas = await html2canvas(chartContainer.value, {
       backgroundColor: "#fafafa",
@@ -341,13 +399,24 @@ const exportImage = async () => {
     });
 
     // 恢复隐藏的元素
-    if (zoomControls) zoomControls.style.display = '';
-    resizeHandles.forEach(handle => handle.style.display = '');
-    gameNameBadges.forEach(badge => badge.style.display = '');
+    if (zoomControls) zoomControls.style.display = "";
+    resizeHandles.forEach((handle) => (handle.style.display = ""));
+    gameNameBadges.forEach((badge) => (badge.style.display = ""));
+    
+    // 恢复图片样式
+    imageBackups.forEach((backup) => {
+      backup.element.style.width = backup.originalWidth;
+      backup.element.style.height = backup.originalHeight;
+      backup.element.style.objectFit = backup.originalObjectFit;
+      backup.element.style.objectPosition = "";
+      backup.element.style.position = "";
+      backup.element.style.left = "";
+      backup.element.style.top = "";
+    });
 
     // 转换为图片并下载
     const link = document.createElement("a");
-    const fileName = props.chartTitle.text || '游戏排名图';
+    const fileName = props.chartTitle.text || "游戏排名图";
     link.download = `${fileName}_${Date.now()}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
@@ -356,15 +425,19 @@ const exportImage = async () => {
   } catch (error) {
     console.error("导出失败:", error);
     ElMessage.error("图片导出失败，请重试");
-    
+
     // 发生错误时也要恢复隐藏的元素
-    const zoomControls = chartContainer.value?.querySelector('.zoom-controls');
-    const resizeHandles = chartContainer.value?.querySelectorAll('.resize-handle');
-    const gameNameBadges = chartContainer.value?.querySelectorAll('.game-name-badge');
-    
-    if (zoomControls) zoomControls.style.display = '';
-    if (resizeHandles) resizeHandles.forEach(handle => handle.style.display = '');
-    if (gameNameBadges) gameNameBadges.forEach(badge => badge.style.display = '');
+    const zoomControls = chartContainer.value?.querySelector(".zoom-controls");
+    const resizeHandles =
+      chartContainer.value?.querySelectorAll(".resize-handle");
+    const gameNameBadges =
+      chartContainer.value?.querySelectorAll(".game-name-badge");
+
+    if (zoomControls) zoomControls.style.display = "";
+    if (resizeHandles)
+      resizeHandles.forEach((handle) => (handle.style.display = ""));
+    if (gameNameBadges)
+      gameNameBadges.forEach((badge) => (badge.style.display = ""));
   }
 };
 
@@ -528,7 +601,7 @@ const resetZoom = () => {
 
 // 放大所有游戏图标
 const enlargeAllGames = () => {
-  props.games.forEach(game => {
+  props.games.forEach((game) => {
     const currentSize = game.size || defaultGameSize.value;
     const newSize = Math.min(200, currentSize + 10);
     emit("update-game", {
@@ -543,7 +616,7 @@ const enlargeAllGames = () => {
 
 // 缩小所有游戏图标
 const shrinkAllGames = () => {
-  props.games.forEach(game => {
+  props.games.forEach((game) => {
     const currentSize = game.size || defaultGameSize.value;
     const newSize = Math.max(40, currentSize - 10);
     emit("update-game", {
@@ -558,7 +631,7 @@ const shrinkAllGames = () => {
 
 // 重置所有游戏图标大小
 const resetAllGamesSize = () => {
-  props.games.forEach(game => {
+  props.games.forEach((game) => {
     emit("update-game", {
       ...game,
       size: defaultGameSize.value,
@@ -569,13 +642,13 @@ const resetAllGamesSize = () => {
 
 // 打开设置对话框
 const openSettings = () => {
-  emit('open-settings');
+  emit("open-settings");
 };
 
 // 从本地存储加载默认游戏大小
 const loadDefaultGameSize = () => {
   try {
-    const saved = localStorage.getItem('bangumi_default_game_size');
+    const saved = localStorage.getItem("bangumi_default_game_size");
     if (saved) {
       const size = parseInt(saved, 10);
       if (size >= 40 && size <= 200) {
@@ -583,16 +656,19 @@ const loadDefaultGameSize = () => {
       }
     }
   } catch (error) {
-    console.error('加载默认游戏大小失败:', error);
+    console.error("加载默认游戏大小失败:", error);
   }
 };
 
 // 保存默认游戏大小到本地存储
 const saveDefaultGameSize = () => {
   try {
-    localStorage.setItem('bangumi_default_game_size', defaultGameSize.value.toString());
+    localStorage.setItem(
+      "bangumi_default_game_size",
+      defaultGameSize.value.toString()
+    );
   } catch (error) {
-    console.error('保存默认游戏大小失败:', error);
+    console.error("保存默认游戏大小失败:", error);
   }
 };
 
@@ -720,12 +796,22 @@ onUnmounted(() => {
 .game-image {
   width: 100%;
   height: 100%;
+  display: block;
+  overflow: hidden;
+}
+
+.game-image :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover !important;
+  object-position: center;
 }
 
 .game-image :deep(img) {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: cover !important;
+  object-position: center;
 }
 
 .image-error {
