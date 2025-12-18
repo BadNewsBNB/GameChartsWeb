@@ -151,21 +151,33 @@ bgm_web/
 
 ## 🚀 部署到线上
 
-想要将项目部署到线上供其他人使用？查看以下指南：
+想要将项目部署到线上供其他人使用？根据目标用户选择合适的方案：
 
-### 快速开始
-- **5分钟快速部署**：查看 [快速部署.md](./快速部署.md)
-- **完整部署指南**：查看 [DEPLOYMENT.md](./DEPLOYMENT.md)
+### 🇨🇳 中国大陆用户（推荐）
 
-### 推荐平台
-- ⭐ **Vercel**（最推荐）：零配置，自动部署
+**最佳方案**：
+- ⭐⭐⭐⭐⭐ **腾讯云 COS**（前6个月免费）→ [详细教程](./deploy-tencent.md)
+- ⭐⭐⭐⭐⭐ **阿里云 OSS**（有免费额度）→ [详细教程](./deploy-aliyun.md)
+- ⭐⭐⭐⭐ **又拍云联盟**（永久免费，需申请）
+
+**免费方案对比**：查看 [中国大陆免费部署方案](./deploy-china-free.md)
+
+### 🌏 海外用户
+
+**推荐平台**：
+- ⭐ **Vercel**：零配置，自动部署 → [快速部署](./快速部署.md)
 - **Netlify**：简单易用，免费额度充足
 - **Cloudflare Pages**：全球加速，速度快
 
-所有配置文件已准备好，开箱即用：
+**配置文件**（开箱即用）：
 - ✅ `vercel.json` - Vercel配置
 - ✅ `netlify.toml` - Netlify配置
 - ✅ `public/_redirects` - Cloudflare Pages配置
+
+### 📚 完整指南
+
+- **所有平台对比**：[DEPLOYMENT.md](./DEPLOYMENT.md)
+- **GitHub Pages + CDN**：[deploy-github-cdn.md](./deploy-github-cdn.md)
 
 ## 注意事项
 
