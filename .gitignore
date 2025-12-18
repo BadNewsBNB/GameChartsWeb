@@ -39,3 +39,7 @@ dist-ssr
 # Netlify
 .netlify
 
+# Cloudflare
+.wrangler
+wrangler.toml.bak
+workers-site/node_modules

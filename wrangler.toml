@@ -1,5 +1,6 @@
-name = "game-charts-web"
+name = "gameschartweb"
 compatibility_date = "2025-12-18"
+main = "workers-site/index.js"
 
 [site]
 bucket = "./dist"

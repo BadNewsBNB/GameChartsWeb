@@ -1,39 +1,43 @@
 # Cloudflare Pages 部署指南
 
-## 方法一：使用 Wrangler CLI（已配置）
+## ⚠️ 重要：Cloudflare Pages 部署配置
 
-项目已经添加了 `wrangler.toml` 配置文件，可以直接使用命令行部署：
-
-```bash
-# 安装 wrangler（如果还没安装）
-npm install -g wrangler
-
-# 登录到 Cloudflare
-wrangler login
-
-# 构建并部署
-npm run build
-npx wrangler pages deploy dist --project-name=game-charts-web
-```
-
-## 方法二：通过 Cloudflare Pages 控制台
+### 方法一：通过 Cloudflare Pages 控制台（推荐）
 
 ### 1. 在 Cloudflare 控制台配置
 
 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/) 并进入 Pages：
 
-1. 选择你的项目
-2. 进入 **Settings** > **Builds & deployments**
-3. 配置如下：
+#### 初次设置：
+
+1. 点击 **Create a project**
+2. 连接你的 Git 仓库（GitHub/GitLab）
+3. 选择仓库和分支
+4. 配置构建设置：
 
 **构建配置：**
 - **框架预设**: `None` 或 `Vite`
 - **构建命令**: `npm run build`
 - **构建输出目录**: `dist`
-- **根目录**: `/GameChartsWeb`（如果仓库根目录不是项目目录）
+- **根目录**: `GameChartsWeb`（如果仓库根目录不是项目目录）
+- **部署命令**: 留空或删除默认的 `npx wrangler deploy`
 
 **环境变量**（可选）：
 - `NODE_VERSION`: `18` 或更高
+
+#### 已有项目的修改：
+
+如果你已经创建了项目但遇到错误：
+
+1. 进入项目 **Settings** > **Builds & deployments**
+2. 找到 **Build configurations** 部分
+3. 点击 **Edit configuration**
+4. **关键修改**：删除或清空 **部署命令（Deploy command）** 字段
+5. 确保：
+   - **构建命令**: `npm run build`
+   - **构建输出目录**: `dist`
+   - **根目录**: `GameChartsWeb`
+6. 保存并重新部署
 
 ### 2. 注意事项
 
@@ -79,9 +83,28 @@ const baseURL = import.meta.env.PROD
   : '/api';
 ```
 
-## 方法三：自动部署
+## 方法二：使用 Wrangler CLI 本地部署
 
-### GitHub Actions 自动部署
+如果你想通过命令行部署：
+
+```bash
+# 进入项目目录
+cd GameChartsWeb
+
+# 安装依赖
+npm install
+
+# 构建项目
+npm run build
+
+# 登录 Cloudflare（首次使用）
+npx wrangler login
+
+# 部署到 Cloudflare Pages
+npx wrangler pages deploy dist --project-name=game-charts-web
+```
+
+## 方法三：GitHub Actions 自动部署
 
 在 `.github/workflows/deploy-cloudflare.yml` 中添加：
 
@@ -126,16 +149,31 @@ jobs:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-## 快速修复当前错误
+## 🚨 快速修复当前错误
 
-如果你现在正在 Cloudflare Pages 控制台部署，最快的修复方法：
+### 问题原因
+Cloudflare Pages 控制台中配置了错误的部署命令 `npx wrangler deploy`，这个命令用于 Workers，不是 Pages。
 
-1. 将项目根目录的 `wrangler.toml` 推送到你的仓库
-2. 或者修改 Cloudflare Pages 的部署命令为：
-   ```
-   npx wrangler pages deploy dist --project-name=game-charts-web
-   ```
-   （将 `npx wrangler deploy` 改为 `npx wrangler pages deploy dist`）
+### 解决步骤
+
+1. **进入 Cloudflare Pages 控制台**
+   - 登录 https://dash.cloudflare.com/
+   - 选择你的项目
+
+2. **修改构建配置**
+   - 进入 **Settings** > **Builds & deployments**
+   - 点击 **Edit configuration**
+
+3. **关键修改**
+   - ✅ **构建命令**: `npm run build`
+   - ✅ **构建输出目录**: `dist`
+   - ✅ **根目录**: `GameChartsWeb`
+   - ⚠️ **部署命令**: **删除或留空**（不要填 `npx wrangler deploy`）
+
+4. **保存并重新部署**
+   - 保存配置
+   - 进入 **Deployments** 标签
+   - 点击 **Retry deployment** 重新部署
 
 ## 验证部署
 
