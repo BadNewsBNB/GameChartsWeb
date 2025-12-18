@@ -1,0 +1,21 @@
+{
+  "name": "bgm-web",
+  "version": "1.0.0",
+  "description": "游戏排名可视化工具 - 四象限坐标系游戏评价应用",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "axios": "^1.6.0",
+    "element-plus": "^2.5.0",
+    "html2canvas": "^1.4.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
