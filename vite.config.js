@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  base: '/GameChartsWeb/', // 改为你的仓库名
+  base: '/', // Cloudflare Pages 使用根路径
   plugins: [vue()],
   resolve: {
     alias: {
