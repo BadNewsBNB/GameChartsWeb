@@ -936,6 +936,7 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
+  z-index: 20; /* 确保游戏封面在坐标系网格之上 */
   transition: background-color 0.3s;
 }
 
