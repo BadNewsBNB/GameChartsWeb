@@ -1,6 +1,6 @@
 name = "gameschartweb"
 compatibility_date = "2025-12-18"
-main = "workers-site/index.js"
+main = "cloudflare-worker.js"
 
 [site]
 bucket = "./dist"
