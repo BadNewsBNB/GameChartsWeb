@@ -13,9 +13,9 @@
       :closable="false"
       style="margin-bottom: 20px"
     >
-      <p style="color: #ff0000">
+      <!-- <p style="color: #ff0000">
         请注意：本功能在此网站中可能有问题，如导入结果只能展示30条、无法分页等，尝试修复中。有条件的可以至右下角github拉取代码本地运行
-      </p>
+      </p> -->
       <p>
         1. 在
         <a href="https://next.bgm.tv/demo/access-token" target="_blank"
@@ -313,14 +313,7 @@ const tagCounts = computed(() => {
 const filteredCollections = computed(() => {
   let filtered = collections.value;
 
-  // 1. 根据条目类型过滤（前端过滤）
-  if (form.value.subjectType !== undefined) {
-    filtered = filtered.filter((item) => {
-      return item.subject?.type === form.value.subjectType;
-    });
-  }
-
-  // 2. 根据用户标签过滤（前端过滤）
+  // 条目类型和收藏状态已在后端过滤，这里只需要根据用户标签过滤（前端过滤）
   if (form.value.selectedTags.length > 0) {
     filtered = filtered.filter((item) => {
       if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) {
@@ -382,10 +375,11 @@ const loadCollections = async () => {
 
     // 使用实际的用户名加载收藏
     const offset = (currentPage.value - 1) * pageSize.value;
-    // 注意：只传递 type（收藏状态）参数给后端，subjectType（条目类型）在前端过滤
+    // 注意：subjectType（条目类型）和 type（收藏状态）都通过后端过滤
     const res = await getUserCollections({
       username: currentUsername.value,
       accessToken: form.value.accessToken,
+      subjectType: form.value.subjectType,
       type: form.value.collectionType,
       limit: pageSize.value,
       offset,
@@ -513,29 +507,13 @@ watch(dialogVisible, (val) => {
   }
 });
 
-// 监听收藏状态变化 - 需要重新请求 API（后端过滤）
+// 监听条目类型和收藏状态变化 - 都需要重新请求 API（后端过滤）
 watch(
-  () => form.value.collectionType,
+  () => [form.value.subjectType, form.value.collectionType],
   () => {
     if (hasLoaded.value) {
       currentPage.value = 1;
       loadCollections();
-    }
-  }
-);
-
-// 监听条目类型变化 - 仅前端过滤，不需要重新请求
-watch(
-  () => form.value.subjectType,
-  () => {
-    if (hasLoaded.value) {
-      // 只保留仍在筛选结果中的选择
-      const filteredIds = filteredCollections.value.map(
-        (item) => item.subject_id
-      );
-      selectedIds.value = selectedIds.value.filter((id) =>
-        filteredIds.includes(id)
-      );
     }
   }
 );
