@@ -12,7 +12,9 @@
       </div>
     </div>
 
-    <div
+    <!-- 图表滚动容器 -->
+    <div class="chart-scroll-container">
+      <div
       class="coordinate-chart"
       ref="chartContainer"
       :style="{
@@ -72,18 +74,18 @@
         />
 
         <!-- 象限标签 -->
-        <text :x="centerX + 20" y="30" class="axis-label" fill="#67C23A">
+        <text :x="centerX + 20" :y="30" class="axis-label" fill="#67C23A">
           {{ axisLabels.vertical.positive }}
         </text>
         <text
           :x="centerX + 20"
-          :y="height - 20"
+          :y="height - 30"
           class="axis-label"
           fill="#F56C6C"
         >
           {{ axisLabels.vertical.negative }}
         </text>
-        <text x="20" :y="centerY - 10" class="axis-label" fill="#F56C6C">
+        <text :x="20" :y="centerY - 10" class="axis-label" fill="#F56C6C">
           {{ axisLabels.horizontal.negative }}
         </text>
         <text
@@ -173,7 +175,23 @@
       </teleport>
 
       <!-- 缩放控制 -->
-      <div class="zoom-controls">
+      <div 
+        class="zoom-controls"
+        ref="zoomControls"
+        :style="{
+          left: controlsPosition.x + 'px',
+          top: controlsPosition.y + 'px'
+        }"
+      >
+        <!-- 拖动手柄 -->
+        <div 
+          class="drag-handle" 
+          @mousedown="startDragControls"
+          title="拖动此工具栏"
+        >
+          <span>⋮⋮</span>
+        </div>
+
         <div class="control-group">
           <span class="control-label">整体缩放</span>
           <el-button-group>
@@ -237,6 +255,7 @@
       <!-- 水印 - 右下角 -->
       <div class="watermark">games.marblephantasm.org</div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -281,10 +300,16 @@ const emit = defineEmits([
 
 // 容器引用
 const chartContainer = ref(null);
+const zoomControls = ref(null);
 // 固定为1080P基础的绘图区域大小 - 调整为适合1080p屏幕左侧显示
 const width = ref(900);
 const height = ref(800);
 const gridSize = 20;
+
+// 控制面板位置（可拖动）
+const controlsPosition = ref({ x: 20, y: 720 }); // 默认左下角
+const isDraggingControls = ref(false);
+const controlsDragStart = ref({ x: 0, y: 0 });
 
 // 缩放比例
 const scale = ref(1);
@@ -350,7 +375,7 @@ const exportImage = async () => {
     // 处理图片的 object-fit，因为 html2canvas 不支持 object-fit
     const gameImages = chartContainer.value.querySelectorAll(".game-image img");
     const imageBackups = [];
-    
+
     gameImages.forEach((img) => {
       // 保存原始样式
       const backup = {
@@ -406,7 +431,7 @@ const exportImage = async () => {
     if (zoomControls) zoomControls.style.display = "";
     resizeHandles.forEach((handle) => (handle.style.display = ""));
     gameNameBadges.forEach((badge) => (badge.style.display = ""));
-    
+
     // 恢复图片样式
     imageBackups.forEach((backup) => {
       backup.element.style.width = backup.originalWidth;
@@ -544,12 +569,12 @@ const handleDragEnter = (event) => {
 
 const handleDragOver = (event) => {
   event.preventDefault();
-  event.dataTransfer.dropEffect = 'copy';
+  event.dataTransfer.dropEffect = "copy";
 };
 
 const handleDragLeave = (event) => {
   // 只有当离开整个game-items-layer时才重置
-  if (event.target.classList.contains('game-items-layer')) {
+  if (event.target.classList.contains("game-items-layer")) {
     isDragOver.value = false;
   }
 };
@@ -557,46 +582,46 @@ const handleDragLeave = (event) => {
 const handleDrop = (event) => {
   event.preventDefault();
   isDragOver.value = false;
-  
+
   try {
     // 尝试获取拖拽的游戏数据
-    const gameData = event.dataTransfer.getData('application/json');
+    const gameData = event.dataTransfer.getData("application/json");
     if (!gameData) return;
-    
+
     const game = JSON.parse(gameData);
-    
+
     // 获取drop位置相对于坐标系容器的坐标
     const rect = chartContainer.value.getBoundingClientRect();
     const dropX = event.clientX - rect.left;
     const dropY = event.clientY - rect.top;
-    
+
     // 转换为坐标系坐标（相对于中心点）
     // 坐标系：中心为(0,0)，右为正X，上为正Y
     const gameX = dropX - centerX.value;
     const gameY = -(dropY - centerY.value); // Y轴反转
-    
-    console.log('拖放位置:', { dropX, dropY, gameX, gameY });
-    
+
+    console.log("拖放位置:", { dropX, dropY, gameX, gameY });
+
     // 检查游戏是否已存在于坐标系中
-    const existingGame = props.games.find(g => g.id === game.id);
+    const existingGame = props.games.find((g) => g.id === game.id);
     if (existingGame) {
       // 如果已存在，更新位置
-      emit('update-game', {
+      emit("update-game", {
         ...existingGame,
         x: gameX,
-        y: gameY
+        y: gameY,
       });
     } else {
       // 如果不存在，添加新游戏（通过父组件）
-      emit('add-game-to-chart', {
+      emit("add-game-to-chart", {
         ...game,
         x: gameX,
         y: gameY,
-        size: defaultGameSize.value
+        size: defaultGameSize.value,
       });
     }
   } catch (error) {
-    console.error('处理拖放失败:', error);
+    console.error("处理拖放失败:", error);
   }
 };
 
@@ -707,6 +732,68 @@ const openSettings = () => {
   emit("open-settings");
 };
 
+// 拖动控制面板
+const startDragControls = (event) => {
+  if (event.button !== 0) return; // 只响应左键
+  
+  isDraggingControls.value = true;
+  controlsDragStart.value = {
+    x: event.clientX - controlsPosition.value.x,
+    y: event.clientY - controlsPosition.value.y
+  };
+  
+  document.addEventListener('mousemove', onDragControlsMove);
+  document.addEventListener('mouseup', onDragControlsEnd);
+  
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+const onDragControlsMove = (event) => {
+  if (!isDraggingControls.value) return;
+  
+  const newX = event.clientX - controlsDragStart.value.x;
+  const newY = event.clientY - controlsDragStart.value.y;
+  
+  // 限制在图表容器内
+  const maxX = 900 - (zoomControls.value?.offsetWidth || 400);
+  const maxY = 800 - (zoomControls.value?.offsetHeight || 100);
+  
+  controlsPosition.value = {
+    x: Math.max(0, Math.min(maxX, newX)),
+    y: Math.max(0, Math.min(maxY, newY))
+  };
+};
+
+const onDragControlsEnd = () => {
+  isDraggingControls.value = false;
+  document.removeEventListener('mousemove', onDragControlsMove);
+  document.removeEventListener('mouseup', onDragControlsEnd);
+  
+  // 保存位置到本地存储
+  saveControlsPosition();
+};
+
+// 保存和加载控制面板位置
+const saveControlsPosition = () => {
+  try {
+    localStorage.setItem('bangumi_controls_position', JSON.stringify(controlsPosition.value));
+  } catch (error) {
+    console.error('保存控制面板位置失败:', error);
+  }
+};
+
+const loadControlsPosition = () => {
+  try {
+    const saved = localStorage.getItem('bangumi_controls_position');
+    if (saved) {
+      controlsPosition.value = JSON.parse(saved);
+    }
+  } catch (error) {
+    console.error('加载控制面板位置失败:', error);
+  }
+};
+
 // 从本地存储加载默认游戏大小
 const loadDefaultGameSize = () => {
   try {
@@ -743,6 +830,7 @@ watch(defaultGameSize, () => {
 onMounted(() => {
   // 固定尺寸，无需监听resize
   loadDefaultGameSize();
+  loadControlsPosition();
 });
 
 onUnmounted(() => {
@@ -750,6 +838,8 @@ onUnmounted(() => {
   document.removeEventListener("mouseup", onDragEnd);
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
+  document.removeEventListener("mousemove", onDragControlsMove);
+  document.removeEventListener("mouseup", onDragControlsEnd);
   document.removeEventListener("click", hideContextMenu);
 });
 </script>
@@ -760,7 +850,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
   background: #f5f7fa;
 }
 
@@ -772,6 +862,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
+  flex-shrink: 0; /* 工具栏不缩小 */
 }
 
 .toolbar-left {
@@ -784,11 +875,22 @@ onUnmounted(() => {
   gap: 10px;
 }
 
+/* 图表滚动容器 - 确保内容不被裁剪 */
+.chart-scroll-container {
+  flex: 1;
+  overflow: auto;
+  min-height: 0; /* 修复 flex 子元素滚动问题 */
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 .coordinate-chart {
   position: relative;
   width: 900px;
   height: 800px;
-  margin: 20px auto;
+  flex-shrink: 0; /* 防止图表被压缩 */
   background: #fafafa;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
@@ -819,6 +921,7 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   pointer-events: none;
+  z-index: 15; /* 确保坐标轴标签在图表标题之上 */
 }
 
 .axis-label {
@@ -981,16 +1084,44 @@ onUnmounted(() => {
 
 .zoom-controls {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  /* bottom 和 left 通过 style 动态绑定 */
   z-index: 10;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   padding: 12px 16px;
+  padding-left: 8px; /* 为拖动手柄留空间 */
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: default;
+  user-select: none;
+}
+
+/* 拖动手柄 */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 100%;
+  cursor: move;
+  color: #909399;
+  font-size: 14px;
+  margin-right: 4px;
+  border-right: 1px solid #e4e7ed;
+  padding-right: 8px;
+  transition: color 0.3s;
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: #409eff;
+}
+
+.drag-handle:active {
+  color: #3a8ee6;
+  cursor: grabbing;
 }
 
 .control-group {
