@@ -155,7 +155,7 @@ export function getUserCollections({
   accessToken,
   subjectType,
   type,
-  limit = 30, 
+  limit = 50, 
   offset = 0 
 } = {}) {
   return request({
