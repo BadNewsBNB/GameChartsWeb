@@ -136,6 +136,16 @@
               </el-button>
             </el-upload>
           </div>
+
+          <el-divider />
+
+          <div class="action-group">
+            <h4>清除图表</h4>
+            <p class="desc">清除坐标系中的游戏</p>
+            <el-button type="warning" @click="handleClearChart" :icon="Delete">
+              清除坐标系
+            </el-button>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -150,7 +160,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Download, Upload } from "@element-plus/icons-vue";
+import { Download, Upload, Delete } from "@element-plus/icons-vue";
 
 const props = defineProps({
   visible: {
@@ -180,6 +190,8 @@ const emit = defineEmits([
   "update-axis-labels",
   "update-chart-title",
   "import-data",
+  "clear-chart",
+  "clear-all-data",
 ]);
 
 const dialogVisible = computed({
@@ -306,6 +318,50 @@ const handleImportFile = (file) => {
   };
 
   reader.readAsText(file.raw);
+};
+
+// 清除图表
+const handleClearChart = () => {
+  ElMessageBox.confirm(
+    '请选择清除方式',
+    '清除坐标系',
+    {
+      distinguishCancelAndClose: true,
+      confirmButtonText: '移回待选栏',
+      cancelButtonText: '清除全部数据',
+      type: 'warning',
+      message: '选择"移回待选栏"将坐标系中的游戏移回游戏库；选择"清除全部数据"将清空所有游戏（包括游戏库）'
+    }
+  )
+    .then(() => {
+      // 用户点击了"移回待选栏"
+      emit('clear-chart', 'move-to-library');
+      ElMessage.success('已将坐标系中的游戏移回待选栏');
+      dialogVisible.value = false;
+    })
+    .catch((action) => {
+      if (action === 'cancel') {
+        // 用户点击了"清除全部数据"
+        ElMessageBox.confirm(
+          '此操作将清除所有游戏数据（包括游戏库和坐标系），且无法恢复！',
+          '确认清除全部数据',
+          {
+            confirmButtonText: '确定清除',
+            cancelButtonText: '取消',
+            type: 'error'
+          }
+        )
+          .then(() => {
+            emit('clear-all-data');
+            ElMessage.success('已清除所有数据');
+            dialogVisible.value = false;
+          })
+          .catch(() => {
+            // 用户取消了清除全部数据
+          });
+      }
+      // 如果 action === 'close'，说明用户点击了 X 关闭，不做任何操作
+    });
 };
 
 // 确定

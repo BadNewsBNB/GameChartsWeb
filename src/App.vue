@@ -147,6 +147,8 @@
       @update-axis-labels="handleUpdateAxisLabels"
       @update-chart-title="handleUpdateChartTitle"
       @import-data="handleImportData"
+      @clear-chart="handleClearChart"
+      @clear-all-data="handleClearAllData"
     />
   </div>
 </template>
@@ -338,6 +340,19 @@ const handleImportData = (data) => {
     console.error("导入数据失败:", error);
     ElMessage.error("导入数据失败：" + error.message);
   }
+};
+
+// 清除坐标系（移回待选栏）
+const handleClearChart = () => {
+  // 只清空坐标系，游戏库保持不变
+  gamesInChart.value = [];
+};
+
+// 清除所有数据
+const handleClearAllData = () => {
+  // 清空游戏库和坐标系
+  gameLibrary.value = [];
+  gamesInChart.value = [];
 };
 
 // 添加游戏到游戏库
