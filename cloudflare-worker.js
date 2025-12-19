@@ -1,95 +1,132 @@
 /**
- * Cloudflare Worker - Bangumi API 代理
- * 
- * 部署到 Cloudflare Workers 后，将此 Worker 的 URL 配置到前端
- * 例如: https://your-worker.your-subdomain.workers.dev
+ * Cloudflare Worker - Bangumi API 代理（浏览器语义版）
  */
 
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
-
-async function handleRequest(request) {
-  const url = new URL(request.url)
+addEventListener("fetch", event => {
+    event.respondWith(handleRequest(event.request));
+  });
   
-  // 转发到 Bangumi API
-  if (url.pathname.startsWith('/v0/') || url.pathname === '/calendar') {
-    const apiUrl = 'https://api.bgm.tv' + url.pathname + url.search
-    
-    // 处理 OPTIONS 预检请求
-    if (request.method === 'OPTIONS') {
-      return handleCORS()
-    }
-    
-    // 复制请求头
-    const headers = new Headers(request.headers)
-    headers.set('Origin', 'https://api.bgm.tv')
-    headers.set('Referer', 'https://api.bgm.tv')
-    
-    // 创建新的请求，禁用 Cloudflare 缓存
-    const apiRequest = new Request(apiUrl, {
-      method: request.method,
-      headers: headers,
-      body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null,
-      // 禁用 Cloudflare 缓存
-      cf: {
-        cacheTtl: 0,           // 不缓存
-        cacheEverything: false // 不缓存所有内容
+  async function handleRequest(request) {
+    const url = new URL(request.url);
+  
+    // 仅代理 Bangumi API
+    if (url.pathname.startsWith("/v0/") || url.pathname === "/calendar") {
+  
+      // OPTIONS 预检
+      if (request.method === "OPTIONS") {
+        return handleCORS();
       }
-    })
-    
-    try {
-      // 发送请求到 Bangumi API
-      const response = await fetch(apiRequest)
-      
-      // 创建新的响应，添加 CORS 头
-      const newResponse = new Response(response.body, response)
-      
-      // 设置 CORS 头
-      newResponse.headers.set('Access-Control-Allow-Origin', '*')
-      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-      newResponse.headers.set('Access-Control-Max-Age', '86400')
-      
-      // 添加缓存控制头，确保响应不被缓存
-      newResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-      newResponse.headers.set('Pragma', 'no-cache')
-      newResponse.headers.set('Expires', '0')
-      
-      return newResponse
-    } catch (error) {
-      return new Response(JSON.stringify({ 
-        error: 'API request failed', 
-        message: error.message 
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+  
+      const apiUrl = "https://api.bgm.tv" + url.pathname + url.search;
+  
+      /**
+       * 重新构造 headers：
+       * - 不伪造 Origin / Referer
+       * - 保留 Authorization
+       * - 模拟真实浏览器 UA
+       */
+      const headers = new Headers();
+  
+      // 只拷贝“安全且必要”的 header
+      const passHeaders = [
+        "authorization",
+        "accept",
+        "accept-language"
+      ];
+  
+      for (const h of passHeaders) {
+        const v = request.headers.get(h);
+        if (v) headers.set(h, v);
+      }
+  
+      // 模拟真实浏览器 UA（非常关键）
+      headers.set(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/122.0.0.0 Safari/537.36"
+      );
+  
+      // 明确声明为 fetch 请求（浏览器语义）
+      headers.set("Accept", "application/json");
+  
+      const apiRequest = new Request(apiUrl, {
+        method: request.method,
+        headers,
+        body:
+          request.method !== "GET" && request.method !== "HEAD"
+            ? request.body
+            : null,
+        cf: {
+          cacheTtl: 0,
+          cacheEverything: false,
+          // 关键：禁用 Cloudflare 的请求优化
+          polish: false,
+          minify: false
         }
-      })
+      });
+  
+      try {
+        const response = await fetch(apiRequest);
+  
+        const newResponse = new Response(response.body, response);
+  
+        // CORS
+        newResponse.headers.set("Access-Control-Allow-Origin", "*");
+        newResponse.headers.set(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS"
+        );
+        newResponse.headers.set(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization"
+        );
+        newResponse.headers.set("Access-Control-Max-Age", "86400");
+  
+        // 明确禁止缓存
+        newResponse.headers.set(
+          "Cache-Control",
+          "no-cache, no-store, must-revalidate"
+        );
+        newResponse.headers.set("Pragma", "no-cache");
+        newResponse.headers.set("Expires", "0");
+  
+        return newResponse;
+  
+      } catch (err) {
+        return new Response(
+          JSON.stringify({
+            error: "API request failed",
+            message: err.message
+          }),
+          {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
+      }
     }
+  
+    return new Response("Not Found", {
+      status: 404,
+      headers: {
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
   }
   
-  // 其他请求返回 404
-  return new Response('Not Found', { 
-    status: 404,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
-    }
-  })
-}
-
-// 处理 CORS 预检请求
-function handleCORS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400'
-    }
-  })
-}
-
+  function handleCORS() {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400"
+      }
+    });
+  }
+  
