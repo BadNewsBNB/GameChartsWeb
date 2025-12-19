@@ -13,7 +13,13 @@
       :closable="false"
       style="margin-bottom: 20px"
     >
-      <p>1. 在 <a href="https://next.bgm.tv/demo/access-token" target="_blank">Bangumi</a> 生成 Access Token</p>
+      <p>
+        1. 在
+        <a href="https://next.bgm.tv/demo/access-token" target="_blank"
+          >Bangumi</a
+        >
+        生成 Access Token
+      </p>
       <p>2. 输入 Token 后点击"加载收藏"</p>
       <p>3. 选择要导入的条目，点击"批量添加"</p>
     </el-alert>
@@ -103,7 +109,9 @@
     <div v-if="hasLoaded" class="collections-section">
       <div class="section-header">
         <div class="header-left">
-          <span class="result-count">共 {{ filteredCollections.length }} 个收藏</span>
+          <span class="result-count"
+            >共 {{ filteredCollections.length }} 个收藏</span
+          >
           <el-button-group style="margin-left: 12px">
             <el-button
               size="small"
@@ -133,7 +141,13 @@
 
       <el-scrollbar height="400px">
         <div v-if="filteredCollections.length === 0" class="empty-state">
-          <el-empty :description="collections.length === 0 ? '暂无收藏数据' : '没有符合筛选条件的收藏'" />
+          <el-empty
+            :description="
+              collections.length === 0
+                ? '暂无收藏数据'
+                : '没有符合筛选条件的收藏'
+            "
+          />
         </div>
         <div v-else class="collection-list">
           <div
@@ -148,10 +162,7 @@
               @click.stop="toggleSelect(item.subject_id)"
             />
             <div class="item-cover">
-              <el-image
-                :src="item.subject?.images?.common"
-                fit="cover"
-              >
+              <el-image :src="item.subject?.images?.common" fit="cover">
                 <template #error>
                   <div class="image-slot">
                     <el-icon><Picture /></el-icon>
@@ -166,8 +177,12 @@
                 </div>
               </div>
               <div class="item-meta">
-                <el-tag size="small" type="info">{{ getTypeName(item.subject_type) }}</el-tag>
-                <el-tag size="small">{{ getCollectionTypeName(item.type) }}</el-tag>
+                <el-tag size="small" type="info">{{
+                  getTypeName(item.subject_type)
+                }}</el-tag>
+                <el-tag size="small">{{
+                  getCollectionTypeName(item.type)
+                }}</el-tag>
                 <span v-if="item.rate" class="rating">
                   <el-icon><StarFilled /></el-icon>
                   {{ item.rate }}
@@ -184,7 +199,9 @@
                 >
                   {{ tag }}
                 </el-tag>
-                <span v-if="item.tags.length > 5" class="more-tags">+{{ item.tags.length - 5 }}</span>
+                <span v-if="item.tags.length > 5" class="more-tags"
+                  >+{{ item.tags.length - 5 }}</span
+                >
               </div>
             </div>
           </div>
@@ -197,7 +214,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[30, 50, 100]"
+          :page-sizes="[30, 50, 100, 200]"
           layout="total, sizes, prev, pager, next"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
@@ -208,283 +225,321 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Picture, StarFilled } from '@element-plus/icons-vue'
-import { getCurrentUser, getUserCollections, getSubjectsByIds } from '@/api/bangumi'
+import { ref, computed, watch } from "vue";
+import { ElMessage } from "element-plus";
+import { Picture, StarFilled } from "@element-plus/icons-vue";
+import {
+  getCurrentUser,
+  getUserCollections,
+  getSubjectsByIds,
+} from "@/api/bangumi";
 
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   existingGameIds: {
     type: Array,
-    default: () => []
-  }
-})
+    default: () => [],
+  },
+});
 
-const emit = defineEmits(['update:visible', 'add-games'])
+const emit = defineEmits(["update:visible", "add-games"]);
 
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (val) => emit('update:visible', val)
-})
+  set: (val) => emit("update:visible", val),
+});
 
 // 表单数据
 const form = ref({
-  accessToken: '',
+  accessToken: "",
   subjectType: undefined,
   collectionType: undefined,
-  selectedTags: []
-})
+  selectedTags: [],
+});
 
 // 加载状态
-const loading = ref(false)
-const hasLoaded = ref(false)
+const loading = ref(false);
+const hasLoaded = ref(false);
 
 // 收藏数据
-const collections = ref([])
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(30)
+const collections = ref([]);
+const total = ref(0);
+const currentPage = ref(1);
+const pageSize = ref(50);
 
 // 当前用户信息
-const currentUsername = ref('')
+const currentUsername = ref("");
 
 // 选中的ID
-const selectedIds = ref([])
+const selectedIds = ref([]);
 
 // 计算所有可用的标签和数量
 const availableTags = computed(() => {
-  const tagSet = new Set()
-  collections.value.forEach(item => {
+  const tagSet = new Set();
+  collections.value.forEach((item) => {
     if (item.tags && Array.isArray(item.tags)) {
-      item.tags.forEach(tag => {
+      item.tags.forEach((tag) => {
         if (tag && tag.trim()) {
-          tagSet.add(tag.trim())
+          tagSet.add(tag.trim());
         }
-      })
+      });
     }
-  })
-  return Array.from(tagSet).sort()
-})
+  });
+  return Array.from(tagSet).sort();
+});
 
 const tagCounts = computed(() => {
-  const counts = {}
-  collections.value.forEach(item => {
+  const counts = {};
+  collections.value.forEach((item) => {
     if (item.tags && Array.isArray(item.tags)) {
-      item.tags.forEach(tag => {
+      item.tags.forEach((tag) => {
         if (tag && tag.trim()) {
-          const trimmedTag = tag.trim()
-          counts[trimmedTag] = (counts[trimmedTag] || 0) + 1
+          const trimmedTag = tag.trim();
+          counts[trimmedTag] = (counts[trimmedTag] || 0) + 1;
         }
-      })
+      });
     }
-  })
-  return counts
-})
+  });
+  return counts;
+});
 
 // 根据选中的标签筛选收藏
 const filteredCollections = computed(() => {
-  if (form.value.selectedTags.length === 0) {
-    return collections.value
+  let filtered = collections.value;
+
+  // 1. 根据条目类型过滤（前端过滤）
+  if (form.value.subjectType !== undefined) {
+    filtered = filtered.filter((item) => {
+      return item.subject?.type === form.value.subjectType;
+    });
   }
-  
-  return collections.value.filter(item => {
-    if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) {
-      return false
-    }
-    // 检查是否包含所有选中的标签（AND 逻辑）
-    return form.value.selectedTags.every(selectedTag => 
-      item.tags.some(itemTag => itemTag && itemTag.trim() === selectedTag)
-    )
-  })
-})
+
+  // 2. 根据用户标签过滤（前端过滤）
+  if (form.value.selectedTags.length > 0) {
+    filtered = filtered.filter((item) => {
+      if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0) {
+        return false;
+      }
+      // 检查是否包含所有选中的标签（AND 逻辑）
+      return form.value.selectedTags.every((selectedTag) =>
+        item.tags.some((itemTag) => itemTag && itemTag.trim() === selectedTag)
+      );
+    });
+  }
+
+  return filtered;
+});
 
 // 保存 Access Token 并清除用户名
-watch(() => form.value.accessToken, (token, oldToken) => {
-  if (token) {
-    localStorage.setItem('bangumi_access_token', token)
+watch(
+  () => form.value.accessToken,
+  (token, oldToken) => {
+    if (token) {
+      localStorage.setItem("bangumi_access_token", token);
+    }
+    // Token 改变时清除用户名，需要重新验证
+    if (token !== oldToken) {
+      currentUsername.value = "";
+      hasLoaded.value = false;
+      collections.value = [];
+      total.value = 0;
+    }
   }
-  // Token 改变时清除用户名，需要重新验证
-  if (token !== oldToken) {
-    currentUsername.value = ''
-    hasLoaded.value = false
-    collections.value = []
-    total.value = 0
-  }
-})
+);
 
 // 加载 Access Token
 const loadSavedToken = () => {
-  const saved = localStorage.getItem('bangumi_access_token')
+  const saved = localStorage.getItem("bangumi_access_token");
   if (saved) {
-    form.value.accessToken = saved
+    form.value.accessToken = saved;
   }
-}
+};
 
 // 加载收藏
 const loadCollections = async () => {
   if (!form.value.accessToken) {
-    ElMessage.warning('请输入 Access Token')
-    return
+    ElMessage.warning("请输入 Access Token");
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   try {
     // 先获取当前用户信息
     if (!currentUsername.value) {
-      ElMessage.info('正在验证 Access Token...')
-      const userInfo = await getCurrentUser(form.value.accessToken)
-      currentUsername.value = userInfo.username
-      ElMessage.success(`登录成功，欢迎 ${userInfo.nickname || userInfo.username}`)
+      ElMessage.info("正在验证 Access Token...");
+      const userInfo = await getCurrentUser(form.value.accessToken);
+      currentUsername.value = userInfo.username;
+      ElMessage.success(
+        `登录成功，欢迎 ${userInfo.nickname || userInfo.username}`
+      );
     }
 
     // 使用实际的用户名加载收藏
-    const offset = (currentPage.value - 1) * pageSize.value
+    const offset = (currentPage.value - 1) * pageSize.value;
+    // 注意：只传递 type（收藏状态）参数给后端，subjectType（条目类型）在前端过滤
     const res = await getUserCollections({
       username: currentUsername.value,
       accessToken: form.value.accessToken,
-      subjectType: form.value.subjectType,
       type: form.value.collectionType,
       limit: pageSize.value,
-      offset
-    })
+      offset,
+    });
 
     if (res && res.data) {
-      collections.value = res.data
-      total.value = res.total || 0
-      hasLoaded.value = true
-      
+      collections.value = res.data;
+      total.value = res.total || 0;
+      hasLoaded.value = true;
+
       if (total.value === 0) {
-        ElMessage.info('暂无符合条件的收藏')
+        ElMessage.info("暂无符合条件的收藏");
       } else {
-        ElMessage.success(`加载成功，共 ${total.value} 个收藏`)
+        ElMessage.success(`加载成功，共 ${total.value} 个收藏`);
       }
     }
   } catch (error) {
-    console.error('加载收藏失败:', error)
+    console.error("加载收藏失败:", error);
     if (error.response?.status === 401) {
-      ElMessage.error('Access Token 无效或已过期，请重新生成')
-      currentUsername.value = ''
+      ElMessage.error("Access Token 无效或已过期，请重新生成");
+      currentUsername.value = "";
     } else if (error.response?.status === 404) {
-      ElMessage.error('用户不存在或无权限查看该收藏')
+      ElMessage.error("用户不存在或无权限查看该收藏");
     } else {
-      ElMessage.error('加载失败：' + (error.response?.data?.description || error.message || '未知错误'))
+      ElMessage.error(
+        "加载失败：" +
+          (error.response?.data?.description || error.message || "未知错误")
+      );
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 切换选中
 const toggleSelect = (id) => {
-  const index = selectedIds.value.indexOf(id)
+  const index = selectedIds.value.indexOf(id);
   if (index > -1) {
-    selectedIds.value.splice(index, 1)
+    selectedIds.value.splice(index, 1);
   } else {
-    selectedIds.value.push(id)
+    selectedIds.value.push(id);
   }
-}
+};
 
 // 全选
 const selectAll = () => {
-  selectedIds.value = filteredCollections.value.map(item => item.subject_id)
-  ElMessage.success(`已选中 ${selectedIds.value.length} 个条目`)
-}
+  selectedIds.value = filteredCollections.value.map((item) => item.subject_id);
+  ElMessage.success(`已选中 ${selectedIds.value.length} 个条目`);
+};
 
 // 反选
 const selectNone = () => {
-  selectedIds.value = []
-  ElMessage.info('已清空选择')
-}
+  selectedIds.value = [];
+  ElMessage.info("已清空选择");
+};
 
 // 清除标签筛选
 const clearTagFilter = () => {
-  form.value.selectedTags = []
-}
+  form.value.selectedTags = [];
+};
 
 // 批量添加
 const handleBatchAdd = () => {
   const selectedGames = collections.value
-    .filter(c => selectedIds.value.includes(c.subject_id))
-    .filter(c => !props.existingGameIds.includes(c.subject_id))
-    .map(c => ({
+    .filter((c) => selectedIds.value.includes(c.subject_id))
+    .filter((c) => !props.existingGameIds.includes(c.subject_id))
+    .map((c) => ({
       id: c.subject_id,
       name: c.subject?.name_cn || c.subject?.name,
       nameOrigin: c.subject?.name,
       image: c.subject?.images?.common || c.subject?.images?.medium,
       type: c.subject_type,
       date: c.subject?.date,
-      score: c.subject?.score
-    }))
+      score: c.subject?.score,
+    }));
 
   if (selectedGames.length === 0) {
-    ElMessage.warning('所选条目都已在游戏库中')
-    return
+    ElMessage.warning("所选条目都已在游戏库中");
+    return;
   }
 
-  emit('add-games', selectedGames)
-  selectedIds.value = []
-  ElMessage.success(`已添加 ${selectedGames.length} 个条目`)
-}
+  emit("add-games", selectedGames);
+  selectedIds.value = [];
+  ElMessage.success(`已添加 ${selectedGames.length} 个条目`);
+};
 
 // 分页改变
 const handleSizeChange = () => {
-  currentPage.value = 1
-  loadCollections()
-}
+  currentPage.value = 1;
+  loadCollections();
+};
 
 const handlePageChange = () => {
-  loadCollections()
-}
+  loadCollections();
+};
 
 // 获取类型名称
 const getTypeName = (type) => {
   const typeMap = {
-    1: '书籍',
-    2: '动画',
-    3: '音乐',
-    4: '游戏',
-    6: '三次元'
-  }
-  return typeMap[type] || '未知'
-}
+    1: "书籍",
+    2: "动画",
+    3: "音乐",
+    4: "游戏",
+    6: "三次元",
+  };
+  return typeMap[type] || "未知";
+};
 
 // 获取收藏类型名称
 const getCollectionTypeName = (type) => {
   const typeMap = {
-    1: '想看',
-    2: '看过',
-    3: '在看',
-    4: '搁置',
-    5: '抛弃'
-  }
-  return typeMap[type] || '未知'
-}
+    1: "想看",
+    2: "看过",
+    3: "在看",
+    4: "搁置",
+    5: "抛弃",
+  };
+  return typeMap[type] || "未知";
+};
 
 // 监听对话框打开
 watch(dialogVisible, (val) => {
   if (val) {
-    loadSavedToken()
+    loadSavedToken();
   }
-})
+});
 
-// 监听筛选条件变化
-watch([() => form.value.subjectType, () => form.value.collectionType], () => {
+// 监听收藏状态变化 - 需要重新请求 API（后端过滤）
+watch(() => form.value.collectionType, () => {
   if (hasLoaded.value) {
-    currentPage.value = 1
-    loadCollections()
+    currentPage.value = 1;
+    loadCollections();
   }
-})
+});
 
-// 监听标签筛选变化，清空选择
-watch(() => form.value.selectedTags, () => {
-  // 只保留仍在筛选结果中的选择
-  const filteredIds = filteredCollections.value.map(item => item.subject_id)
-  selectedIds.value = selectedIds.value.filter(id => filteredIds.includes(id))
-}, { deep: true })
+// 监听条目类型变化 - 仅前端过滤，不需要重新请求
+watch(() => form.value.subjectType, () => {
+  if (hasLoaded.value) {
+    // 只保留仍在筛选结果中的选择
+    const filteredIds = filteredCollections.value.map((item) => item.subject_id);
+    selectedIds.value = selectedIds.value.filter((id) => filteredIds.includes(id));
+  }
+});
+
+// 监听用户标签变化 - 仅前端过滤，不需要重新请求
+watch(
+  () => form.value.selectedTags,
+  () => {
+    if (hasLoaded.value) {
+      // 只保留仍在筛选结果中的选择
+      const filteredIds = filteredCollections.value.map((item) => item.subject_id);
+      selectedIds.value = selectedIds.value.filter((id) => filteredIds.includes(id));
+    }
+  },
+  { deep: true }
+);
+
 </script>
 
 <style scoped>
@@ -640,4 +695,3 @@ watch(() => form.value.selectedTags, () => {
   justify-content: center;
 }
 </style>
-
