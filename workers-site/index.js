@@ -44,9 +44,54 @@ async function handleEvent(event) {
 
     // Handle API proxy to Bangumi
     if (url.pathname.startsWith('/api/')) {
-      const apiUrl = 'https://api.bgm.tv' + url.pathname.replace('/api', '');
-      const apiRequest = new Request(apiUrl, event.request);
-      return await fetch(apiRequest);
+      // OPTIONS 预检请求
+      if (event.request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '86400',
+          },
+        });
+      }
+      
+      const apiUrl = 'https://api.bgm.tv' + url.pathname.replace('/api', '') + url.search;
+      
+      // 构造请求头
+      const headers = new Headers();
+      headers.set('Accept', 'application/json');
+      
+      // 保留前端带的 Authorization
+      const auth = event.request.headers.get('Authorization');
+      if (auth) headers.set('Authorization', auth);
+      
+      // 模拟浏览器 UA
+      headers.set(
+        'User-Agent',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+        'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/122.0.0.0 Safari/537.36'
+      );
+      
+      const apiRequest = new Request(apiUrl, {
+        method: event.request.method,
+        headers,
+        body: event.request.method !== 'GET' && event.request.method !== 'HEAD'
+          ? event.request.body
+          : null
+      });
+      
+      const response = await fetch(apiRequest);
+      
+      // 添加 CORS 头
+      const newResponse = new Response(response.body, response);
+      newResponse.headers.set('Access-Control-Allow-Origin', '*');
+      newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      
+      return newResponse;
     }
 
     const page = await getAssetFromKV(event, options);
