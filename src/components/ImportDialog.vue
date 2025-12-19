@@ -13,6 +13,9 @@
       :closable="false"
       style="margin-bottom: 20px"
     >
+      <p style="color: #ff0000">
+        请注意：本功能在此网站中可能有问题，如导入结果只能展示30条、无法分页等，尝试修复中。有条件的可以至右下角github拉取代码本地运行
+      </p>
       <p>
         1. 在
         <a href="https://next.bgm.tv/demo/access-token" target="_blank"
@@ -511,21 +514,31 @@ watch(dialogVisible, (val) => {
 });
 
 // 监听收藏状态变化 - 需要重新请求 API（后端过滤）
-watch(() => form.value.collectionType, () => {
-  if (hasLoaded.value) {
-    currentPage.value = 1;
-    loadCollections();
+watch(
+  () => form.value.collectionType,
+  () => {
+    if (hasLoaded.value) {
+      currentPage.value = 1;
+      loadCollections();
+    }
   }
-});
+);
 
 // 监听条目类型变化 - 仅前端过滤，不需要重新请求
-watch(() => form.value.subjectType, () => {
-  if (hasLoaded.value) {
-    // 只保留仍在筛选结果中的选择
-    const filteredIds = filteredCollections.value.map((item) => item.subject_id);
-    selectedIds.value = selectedIds.value.filter((id) => filteredIds.includes(id));
+watch(
+  () => form.value.subjectType,
+  () => {
+    if (hasLoaded.value) {
+      // 只保留仍在筛选结果中的选择
+      const filteredIds = filteredCollections.value.map(
+        (item) => item.subject_id
+      );
+      selectedIds.value = selectedIds.value.filter((id) =>
+        filteredIds.includes(id)
+      );
+    }
   }
-});
+);
 
 // 监听用户标签变化 - 仅前端过滤，不需要重新请求
 watch(
@@ -533,13 +546,16 @@ watch(
   () => {
     if (hasLoaded.value) {
       // 只保留仍在筛选结果中的选择
-      const filteredIds = filteredCollections.value.map((item) => item.subject_id);
-      selectedIds.value = selectedIds.value.filter((id) => filteredIds.includes(id));
+      const filteredIds = filteredCollections.value.map(
+        (item) => item.subject_id
+      );
+      selectedIds.value = selectedIds.value.filter((id) =>
+        filteredIds.includes(id)
+      );
     }
   },
   { deep: true }
 );
-
 </script>
 
 <style scoped>
