@@ -26,11 +26,16 @@ async function handleRequest(request) {
     headers.set('Origin', 'https://api.bgm.tv')
     headers.set('Referer', 'https://api.bgm.tv')
     
-    // 创建新的请求
+    // 创建新的请求，禁用 Cloudflare 缓存
     const apiRequest = new Request(apiUrl, {
       method: request.method,
       headers: headers,
-      body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null
+      body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : null,
+      // 禁用 Cloudflare 缓存
+      cf: {
+        cacheTtl: 0,           // 不缓存
+        cacheEverything: false // 不缓存所有内容
+      }
     })
     
     try {
@@ -45,6 +50,11 @@ async function handleRequest(request) {
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
       newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
       newResponse.headers.set('Access-Control-Max-Age', '86400')
+      
+      // 添加缓存控制头，确保响应不被缓存
+      newResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+      newResponse.headers.set('Pragma', 'no-cache')
+      newResponse.headers.set('Expires', '0')
       
       return newResponse
     } catch (error) {
