@@ -89,14 +89,14 @@
         <div class="footer-info">
           <p class="info-line">
             <a
-              href="https://github.com/BadNewsBNB"
+              href="https://github.com/BadNewsBNB/GameChartsWeb"
               target="_blank"
               rel="noopener noreferrer"
             >
               Booo
             </a>
             <span> made with Cursor</span>
-            <a
+            <!-- <a
               href="https://github.com/BadNewsBNB/GameChartsWeb"
               target="_blank"
               rel="noopener noreferrer"
@@ -105,7 +105,7 @@
                 src="https://img.shields.io/github/stars/BadNewsBNB/GameChartsWeb?style=social"
                 alt="GitHub Stars"
               />
-            </a>
+            </a> -->
           </p>
           <p class="info-line">
             <span>Powered by </span>
