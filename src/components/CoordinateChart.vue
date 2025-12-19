@@ -1086,7 +1086,7 @@ onUnmounted(() => {
 .zoom-controls {
   position: absolute;
   /* bottom 和 left 通过 style 动态绑定 */
-  z-index: 10;
+  z-index: 30;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
