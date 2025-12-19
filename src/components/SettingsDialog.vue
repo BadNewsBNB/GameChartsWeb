@@ -331,9 +331,14 @@ const handleExport = () => {
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
+    // 生成文件名：使用图表标题或默认名称
+    const chartTitle = props.chartTitle?.text || "游戏排名图";
+    const timestamp = new Date().getTime();
+    const fileName = `${chartTitle}_${timestamp}.json`;
+
     const link = document.createElement("a");
     link.href = url;
-    link.download = `游戏排名图_${new Date().getTime()}.json`;
+    link.download = fileName;
     link.click();
 
     URL.revokeObjectURL(url);

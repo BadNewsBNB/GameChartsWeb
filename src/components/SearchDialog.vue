@@ -1,14 +1,17 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="搜索游戏"
+    title="搜索条目"
     width="80%"
     :close-on-click-modal="false"
     class="search-dialog"
     top="5vh"
   >
-    <!-- 搜索表单 -->
-    <el-form :model="searchForm" label-width="80px" class="search-form">
+    <!-- 搜索类型选择 -->
+    <el-tabs v-model="searchType" @tab-change="handleTabChange">
+      <el-tab-pane label="条目搜索" name="subject">
+        <!-- 搜索表单 -->
+        <el-form :model="searchForm" label-width="80px" class="search-form" @submit.prevent>
       <el-row :gutter="20">
         <el-col :span="16">
           <el-form-item label="条目名称" required>
@@ -174,6 +177,116 @@
         </div>
       </div>
     </div>
+  </el-tab-pane>
+
+      <!-- 角色搜索 -->
+      <el-tab-pane label="角色搜索" name="character">
+        <el-form :model="characterForm" label-width="80px" class="search-form" @submit.prevent>
+          <el-row :gutter="20">
+            <el-col :span="24">
+              <el-form-item label="角色名称" required>
+                <el-input
+                  v-model="characterForm.keyword"
+                  placeholder="请输入角色名称"
+                  clearable
+                  @keyup.enter="handleCharacterSearch"
+                >
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row>
+            <el-col :span="24">
+              <el-form-item label=" " class="search-btn-group">
+                <el-button
+                  type="primary"
+                  @click="handleCharacterSearch"
+                  :loading="loading"
+                >
+                  <el-icon><Search /></el-icon>
+                  <span style="margin-left: 5px">搜索</span>
+                </el-button>
+                <el-button @click="handleCharacterReset">重置</el-button>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+
+        <el-divider />
+
+        <!-- 角色搜索结果 -->
+        <div class="search-results" v-loading="loading">
+          <div v-if="!hasSearched" class="empty-tips">
+            <el-empty
+              description="请输入角色名称开始搜索"
+              :image-size="100"
+            />
+          </div>
+
+          <div v-else-if="characterList.length === 0" class="empty-tips">
+            <el-empty description="未找到相关角色，请尝试其他关键词" :image-size="100" />
+          </div>
+
+          <div v-else class="result-grid">
+            <div
+              v-for="character in characterList"
+              :key="character.id"
+              class="result-item character-item"
+            >
+              <div class="item-cover">
+                <el-image
+                  :src="character.images?.medium || character.images?.large"
+                  fit="cover"
+                  class="cover-image character-cover"
+                >
+                  <template #error>
+                    <div class="image-slot">
+                      <el-icon><Picture /></el-icon>
+                    </div>
+                  </template>
+                </el-image>
+              </div>
+              <div class="item-info">
+                <div class="item-name" :title="character.name">
+                  {{ character.name }}
+                </div>
+                <div class="item-name-cn" :title="character.name_cn" v-if="character.name_cn">
+                  {{ character.name_cn }}
+                </div>
+                <div class="item-actions">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="handleAddCharacter(character)"
+                    :disabled="isCharacterExists(character.id)"
+                  >
+                    <el-icon><Plus /></el-icon>
+                    {{ isCharacterExists(character.id) ? "已添加" : "添加" }}
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分页 -->
+          <div class="pagination">
+            <el-pagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :page-sizes="[10, 20, 30, 50]"
+              :total="total"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+            />
+          </div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
   </el-dialog>
 </template>
 
@@ -188,7 +301,7 @@ import {
   StarFilled,
   Plus,
 } from "@element-plus/icons-vue";
-import { searchSubjects } from "@/api/bangumi";
+import { searchSubjects, searchCharacters } from "@/api/bangumi";
 import { getAccountSettings } from "@/utils/accountSettings";
 
 // Props
@@ -212,17 +325,26 @@ const dialogVisible = computed({
   set: (val) => emit("update:visible", val),
 });
 
-// 搜索表单 - 默认选中游戏类型
+// 搜索类型
+const searchType = ref("subject"); // subject | character
+
+// 条目搜索表单 - 默认选中游戏类型
 const searchForm = ref({
   keyword: "",
   sort: "match",
   types: [4], // 默认选中游戏
 });
 
-// 搜索状态
+// 角色搜索表单
+const characterForm = ref({
+  keyword: "",
+});
+
+// 搜索状态和结果
 const loading = ref(false);
 const hasSearched = ref(false);
 const resultList = ref([]);
+const characterList = ref([]);
 const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
@@ -230,6 +352,11 @@ const pageSize = ref(20);
 // 判断游戏是否已添加
 const isGameAdded = (gameId) => {
   return props.existingGameIds.includes(gameId);
+};
+
+// 判断角色是否已添加
+const isCharacterExists = (characterId) => {
+  return props.existingGameIds.includes(`character_${characterId}`);
 };
 
 // 获取类型名称
@@ -245,7 +372,7 @@ const getTypeName = (types) => {
   return types.map((t) => typeMap[t] || "未知").join("、");
 };
 
-// 重置表单
+// 重置条目搜索表单
 const handleReset = () => {
   searchForm.value = {
     keyword: "",
@@ -256,6 +383,26 @@ const handleReset = () => {
   total.value = 0;
   hasSearched.value = false;
   currentPage.value = 1;
+};
+
+// 重置角色搜索表单
+const handleCharacterReset = () => {
+  characterForm.value = {
+    keyword: "",
+  };
+  characterList.value = [];
+  total.value = 0;
+  hasSearched.value = false;
+  currentPage.value = 1;
+};
+
+// Tab 切换
+const handleTabChange = () => {
+  // 切换时重置搜索状态
+  hasSearched.value = false;
+  loading.value = false;
+  currentPage.value = 1;
+  total.value = 0;
 };
 
 // 执行搜索
@@ -329,17 +476,91 @@ const handleAddGame = (game) => {
   emit("add-game", game);
 };
 
+// 添加角色
+const handleAddCharacter = (character) => {
+  // 将角色转换为游戏对象格式
+  const characterAsGame = {
+    id: `character_${character.id}`, // 添加前缀避免ID冲突
+    name: character.name_cn || character.name,
+    name_cn: character.name_cn,
+    nameOrigin: character.name,
+    images: character.images,
+    type: 'character', // 标记为角色
+    date: '',
+    score: null,
+  };
+  emit("add-game", characterAsGame);
+};
+
+// 角色搜索
+const handleCharacterSearch = async () => {
+  if (!characterForm.value.keyword) {
+    ElMessage.warning("请输入角色名称");
+    return;
+  }
+
+  loading.value = true;
+  hasSearched.value = true;
+
+  try {
+    // 从 localStorage 读取账号设置
+    const { accessToken, includeNSFW } = getAccountSettings();
+
+    const filter = {};
+    
+    // 如果启用了 NSFW 且有 Token，添加 nsfw 过滤器
+    if (includeNSFW && accessToken) {
+      filter.nsfw = null;
+    }
+
+    const offset = (currentPage.value - 1) * pageSize.value;
+    const res = await searchCharacters({
+      keyword: characterForm.value.keyword,
+      limit: pageSize.value,
+      offset: offset,
+      filter: filter,
+      accessToken: includeNSFW && accessToken ? accessToken : null,
+    });
+
+    if (res && res.data) {
+      characterList.value = res.data;
+      total.value = res.total || 0;
+
+      if (total.value > 0) {
+        ElMessage.success(`找到 ${total.value} 个角色`);
+      } else {
+        ElMessage.info("未找到相关角色");
+      }
+    }
+  } catch (error) {
+    console.error("角色搜索失败:", error);
+    ElMessage.error("搜索失败，请稍后重试");
+  } finally {
+    loading.value = false;
+  }
+};
+
 // 分页大小改变
 const handleSizeChange = (val) => {
   pageSize.value = val;
   currentPage.value = 1;
-  handleSearch();
+  // 根据当前 tab 执行对应的搜索
+  if (searchType.value === "subject") {
+    handleSearch();
+  } else {
+    handleCharacterSearch();
+  }
 };
 
 // 当前页改变
 const handleCurrentChange = (val) => {
   currentPage.value = val;
-  handleSearch();
+  // 根据当前 tab 执行对应的搜索
+  if (searchType.value === "subject") {
+    handleSearch();
+  } else {
+    handleCharacterSearch();
+  }
 };
 
 // 截断简介
@@ -413,6 +634,62 @@ watch(dialogVisible, (val) => {
 .result-item:hover {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   border-color: #409eff;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  padding-right: 10px;
+}
+
+.character-item {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.character-item .item-cover {
+  width: 120px;
+  height: 160px;
+  margin-bottom: 12px;
+}
+
+.character-item .item-info {
+  width: 100%;
+}
+
+.character-item .item-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-item .item-name-cn {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-item .item-actions {
+  width: 100%;
+}
+
+.character-item .item-actions .el-button {
+  width: 100%;
+}
+
+.character-cover :deep(.el-image__inner) {
+  object-fit: cover !important;
+  object-position: top center !important;
 }
 
 .item-content {

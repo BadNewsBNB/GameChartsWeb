@@ -133,7 +133,11 @@
             @mousedown="startDrag($event, game)"
             @contextmenu.prevent="showContextMenu($event, game)"
           >
-            <el-image :src="game.image" fit="cover" class="game-image">
+            <el-image 
+            :src="game.image" 
+            fit="cover" 
+            :class="['game-image', { 'character-image': game.type === 'character' }]"
+          >
               <template #error>
                 <div class="image-error">
                   <el-icon><Picture /></el-icon>
@@ -1235,6 +1239,12 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover !important;
   object-position: center;
+}
+
+.character-image :deep(.el-image__inner),
+.character-image :deep(img) {
+  object-fit: cover !important;
+  object-position: top center !important;
 }
 
 .image-error {

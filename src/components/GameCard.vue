@@ -11,7 +11,7 @@
       <el-image
         :src="game.image"
         fit="cover"
-        class="cover-image"
+        :class="['cover-image', { 'character-cover': game.type === 'character' }]"
       >
         <template #error>
           <div class="image-slot">
@@ -154,6 +154,16 @@ const handleDragEnd = () => {
 .cover-image {
   width: 100%;
   height: 100%;
+}
+
+.cover-image :deep(.el-image__inner) {
+  object-fit: cover;
+  object-position: center;
+}
+
+.character-cover :deep(.el-image__inner) {
+  object-fit: cover !important;
+  object-position: top center !important;
 }
 
 .image-slot {

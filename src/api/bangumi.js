@@ -98,10 +98,19 @@ export function getCalendar() {
  * @param {string} params.keyword - 搜索关键词
  * @param {number} params.limit - 每页数量
  * @param {number} params.offset - 偏移量
+ * @param {Object} params.filter - 筛选条件
+ * @param {boolean|null} params.filter.nsfw - NSFW筛选: null=全部, true=仅R18, false=仅非R18（需要 Access Token）
+ * @param {string} params.accessToken - Access Token（可选，用于访问 NSFW 内容）
  * @returns {Promise}
  */
-export function searchCharacters({ keyword, limit = 20, offset = 0 } = {}) {
-  return request({
+export function searchCharacters({ 
+  keyword, 
+  limit = 20, 
+  offset = 0,
+  filter = {},
+  accessToken = null
+} = {}) {
+  const config = {
     url: '/v0/search/characters',
     method: 'post',
     params: {
@@ -109,9 +118,19 @@ export function searchCharacters({ keyword, limit = 20, offset = 0 } = {}) {
       offset
     },
     data: {
-      keyword
+      keyword,
+      filter
     }
-  })
+  }
+
+  // 如果提供了 Access Token，添加到请求头
+  if (accessToken) {
+    config.headers = {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  }
+
+  return request(config)
 }
 
 /**
