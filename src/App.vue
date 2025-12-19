@@ -73,6 +73,7 @@
                 @start-drag="handleStartDrag"
                 @delete="handleDeleteGame"
                 @bring-to-front="handleBringToFront"
+                @rename="handleRenameGame"
               />
             </div>
           </el-scrollbar>
@@ -496,6 +497,23 @@ const handleBringToFront = (gameId) => {
     const game = gamesInChart.value.splice(index, 1)[0];
     gamesInChart.value.push(game);
     // ElMessage.success("已置顶");
+  }
+};
+
+// 重命名游戏
+const handleRenameGame = (gameId, newName) => {
+  // 更新游戏库中的名称
+  const libraryIndex = gameLibrary.value.findIndex((g) => g.id === gameId);
+  if (libraryIndex !== -1) {
+    gameLibrary.value[libraryIndex].name = newName;
+    
+    // 如果该游戏在坐标系中，也要同步更新名称
+    const chartIndex = gamesInChart.value.findIndex((g) => g.id === gameId);
+    if (chartIndex !== -1) {
+      gamesInChart.value[chartIndex].name = newName;
+    }
+    
+    ElMessage.success(newName ? `已重命名为《${newName}》` : '已清除名称');
   }
 };
 

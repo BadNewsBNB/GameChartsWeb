@@ -4,6 +4,7 @@
     :class="{ 'is-disabled': disabled, 'is-dragging': isDragging }"
     :draggable="!disabled"
     @click="handleClick"
+    @contextmenu.prevent="handleContextMenu"
     @dragstart="handleDragStart"
     @dragend="handleDragEnd"
   >
@@ -45,6 +46,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Picture, Check, Close } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 
 const props = defineProps({
   game: {
@@ -57,7 +59,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['start-drag', 'delete', 'bring-to-front'])
+const emit = defineEmits(['start-drag', 'delete', 'bring-to-front', 'rename'])
 
 const isDragging = ref(false)
 
@@ -98,6 +100,32 @@ const handleDragStart = (event) => {
 // 结束拖拽
 const handleDragEnd = () => {
   isDragging.value = false
+}
+
+// 处理右键菜单
+const handleContextMenu = () => {
+  // 只对自定义图片（拖入的图片）显示重命名选项
+  if (props.game.type === 'custom') {
+    ElMessageBox.prompt('请输入新的名称', '重命名', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputValue: props.game.name || '',
+      inputPlaceholder: '请输入名称',
+      inputValidator: (value) => {
+        if (value && value.trim().length > 50) {
+          return '名称不能超过50个字符'
+        }
+        return true
+      }
+    })
+      .then(({ value }) => {
+        const trimmedValue = value.trim()
+        emit('rename', props.game.id, trimmedValue)
+      })
+      .catch(() => {
+        // 用户取消
+      })
+  }
 }
 </script>
 
