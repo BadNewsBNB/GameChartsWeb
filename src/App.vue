@@ -19,6 +19,7 @@
             @remove-game="handleRemoveFromChart"
             @bring-to-front="handleBringToFront"
             @open-settings="openSettingsDialog"
+            @add-game-to-chart="handleAddGameToChart"
           />
         </div>
       </el-main>
@@ -374,6 +375,50 @@ const handleAddGame = (game) => {
   });
 
   ElMessage.success(`已添加《${game.name_cn || game.name}》`);
+};
+
+// 从待选区直接拖拽游戏到坐标系
+const handleAddGameToChart = (gameData) => {
+  // 检查游戏是否已在游戏库中
+  const existingInLibrary = gameLibrary.value.find(g => g.id === gameData.id);
+  
+  if (!existingInLibrary) {
+    // 如果不在游戏库中，先添加到游戏库
+    gameLibrary.value.push({
+      id: gameData.id,
+      name: gameData.name_cn || gameData.name,
+      nameOrigin: gameData.name,
+      image: gameData.images?.common || gameData.images?.medium || gameData.images?.large || gameData.image,
+      type: gameData.type,
+      date: gameData.date,
+      score: gameData.score,
+    });
+  }
+  
+  // 检查是否已在坐标系中
+  const existingInChart = gamesInChart.value.find(g => g.id === gameData.id);
+  
+  if (existingInChart) {
+    // 如果已在坐标系中，更新位置
+    const index = gamesInChart.value.findIndex(g => g.id === gameData.id);
+    gamesInChart.value[index] = {
+      ...existingInChart,
+      x: gameData.x,
+      y: gameData.y,
+    };
+    ElMessage.success('已更新位置');
+  } else {
+    // 添加到坐标系
+    gamesInChart.value.push({
+      id: gameData.id,
+      name: gameData.name_cn || gameData.name || existingInLibrary?.name,
+      image: gameData.images?.common || gameData.images?.medium || gameData.images?.large || gameData.image || existingInLibrary?.image,
+      x: gameData.x,
+      y: gameData.y,
+      size: gameData.size || 60,
+    });
+    // ElMessage.success(`已添加《${gameData.name_cn || gameData.name}》到坐标系`);
+  }
 };
 
 // 开始拖拽

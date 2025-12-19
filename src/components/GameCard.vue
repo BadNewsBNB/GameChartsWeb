@@ -1,8 +1,11 @@
 <template>
   <div 
     class="game-card" 
-    :class="{ 'is-disabled': disabled }"
+    :class="{ 'is-disabled': disabled, 'is-dragging': isDragging }"
+    :draggable="!disabled"
     @click="handleClick"
+    @dragstart="handleDragStart"
+    @dragend="handleDragEnd"
   >
     <div class="game-cover">
       <el-image
@@ -40,6 +43,7 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { Picture, Check, Close } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -55,6 +59,8 @@ const props = defineProps({
 
 const emit = defineEmits(['start-drag', 'delete', 'bring-to-front'])
 
+const isDragging = ref(false)
+
 const handleClick = () => {
   if (props.disabled) {
     // 如果已在坐标系中，点击置顶
@@ -67,6 +73,31 @@ const handleClick = () => {
 
 const handleDelete = () => {
   emit('delete', props.game.id)
+}
+
+// 开始拖拽
+const handleDragStart = (event) => {
+  if (props.disabled) {
+    event.preventDefault()
+    return
+  }
+  
+  isDragging.value = true
+  
+  // 设置拖拽数据
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('application/json', JSON.stringify(props.game))
+  
+  // 设置拖拽图像（使用游戏封面）
+  if (event.target.querySelector('.cover-image img')) {
+    const img = event.target.querySelector('.cover-image img')
+    event.dataTransfer.setDragImage(img, 40, 40)
+  }
+}
+
+// 结束拖拽
+const handleDragEnd = () => {
+  isDragging.value = false
 }
 </script>
 
@@ -97,6 +128,19 @@ const handleDelete = () => {
   transform: none;
   box-shadow: none;
   border-color: #e4e7ed;
+}
+
+.game-card.is-dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.game-card:not(.is-disabled) {
+  cursor: grab;
+}
+
+.game-card:not(.is-disabled):active {
+  cursor: grabbing;
 }
 
 .game-cover {

@@ -111,9 +111,11 @@
       <!-- 游戏元素层 -->
       <div
         class="game-items-layer"
+        :class="{ 'is-drag-over': isDragOver }"
         @drop="handleDrop"
-        @dragover.prevent
-        @dragenter.prevent
+        @dragover.prevent="handleDragOver"
+        @dragenter.prevent="handleDragEnter"
+        @dragleave="handleDragLeave"
       >
         <div
           v-for="game in games"
@@ -274,6 +276,7 @@ const emit = defineEmits([
   "remove-game",
   "bring-to-front",
   "open-settings",
+  "add-game-to-chart",
 ]);
 
 // 容器引用
@@ -311,6 +314,7 @@ const centerY = computed(() => height.value / 2);
 const draggingGameId = ref(null);
 const dragStartPos = ref({ x: 0, y: 0 });
 const gameStartPos = ref({ x: 0, y: 0 });
+const isDragOver = ref(false);
 
 // 缩放状态
 const resizingGameId = ref(null);
@@ -533,9 +537,67 @@ const onResizeEnd = () => {
 };
 
 // 处理拖放（从游戏列表拖入）
+const handleDragEnter = (event) => {
+  event.preventDefault();
+  isDragOver.value = true;
+};
+
+const handleDragOver = (event) => {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+};
+
+const handleDragLeave = (event) => {
+  // 只有当离开整个game-items-layer时才重置
+  if (event.target.classList.contains('game-items-layer')) {
+    isDragOver.value = false;
+  }
+};
+
 const handleDrop = (event) => {
   event.preventDefault();
-  // 此功能已在 GameCard 中通过点击实现
+  isDragOver.value = false;
+  
+  try {
+    // 尝试获取拖拽的游戏数据
+    const gameData = event.dataTransfer.getData('application/json');
+    if (!gameData) return;
+    
+    const game = JSON.parse(gameData);
+    
+    // 获取drop位置相对于坐标系容器的坐标
+    const rect = chartContainer.value.getBoundingClientRect();
+    const dropX = event.clientX - rect.left;
+    const dropY = event.clientY - rect.top;
+    
+    // 转换为坐标系坐标（相对于中心点）
+    // 坐标系：中心为(0,0)，右为正X，上为正Y
+    const gameX = dropX - centerX.value;
+    const gameY = -(dropY - centerY.value); // Y轴反转
+    
+    console.log('拖放位置:', { dropX, dropY, gameX, gameY });
+    
+    // 检查游戏是否已存在于坐标系中
+    const existingGame = props.games.find(g => g.id === game.id);
+    if (existingGame) {
+      // 如果已存在，更新位置
+      emit('update-game', {
+        ...existingGame,
+        x: gameX,
+        y: gameY
+      });
+    } else {
+      // 如果不存在，添加新游戏（通过父组件）
+      emit('add-game-to-chart', {
+        ...game,
+        x: gameX,
+        y: gameY,
+        size: defaultGameSize.value
+      });
+    }
+  } catch (error) {
+    console.error('处理拖放失败:', error);
+  }
 };
 
 // 显示右键菜单
@@ -771,6 +833,13 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
+  transition: background-color 0.3s;
+}
+
+.game-items-layer.is-drag-over {
+  background-color: rgba(64, 158, 255, 0.05);
+  outline: 2px dashed #409eff;
+  outline-offset: -2px;
 }
 
 .game-item {
