@@ -189,6 +189,7 @@ import {
   Plus,
 } from "@element-plus/icons-vue";
 import { searchSubjects } from "@/api/bangumi";
+import { getAccountSettings } from "@/utils/accountSettings";
 
 // Props
 const props = defineProps({
@@ -273,10 +274,18 @@ const handleSearch = async () => {
   hasSearched.value = true;
 
   try {
+    // 从 localStorage 读取账号设置
+    const { accessToken, includeNSFW } = getAccountSettings();
+
     // 构建筛选条件 - 使用用户选择的类型
     const filter = {
       type: searchForm.value.types,
     };
+
+    // 如果启用了 NSFW 且有 Token，添加 nsfw 过滤器
+    if (includeNSFW && accessToken) {
+      filter.nsfw = null; // null = 包含所有内容（包括 R18）
+    }
 
     // 调用搜索 API
     const offset = (currentPage.value - 1) * pageSize.value;
@@ -286,6 +295,7 @@ const handleSearch = async () => {
       limit: pageSize.value,
       offset: offset,
       filter: filter,
+      accessToken: includeNSFW && accessToken ? accessToken : null,
     });
 
     // 处理返回数据

@@ -97,6 +97,47 @@
         </el-form>
       </el-tab-pane>
 
+      <!-- 账号设置 -->
+      <el-tab-pane label="账号设置" name="account">
+        <el-form label-width="120px" class="account-form">
+          <el-alert
+            title="说明"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 20px"
+          >
+            <p>配置 Access Token 后可以访问 Bangumi 的 NSFW(R18) 内容</p>
+          </el-alert>
+
+          <el-form-item label="Access Token">
+            <el-input
+              v-model="localAccessToken"
+              type="password"
+              placeholder="输入你的 Bangumi Access Token"
+              show-password
+              clearable
+            />
+            <el-text type="info" size="small" style="margin-top: 4px">
+              <a
+                href="https://next.bgm.tv/demo/access-token"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="color: #409eff"
+              >
+                点击获取 Access Token
+              </a>
+            </el-text>
+          </el-form-item>
+
+          <el-form-item label="包含 R18 内容">
+            <el-switch v-model="localIncludeNSFW" />
+            <el-text type="warning" size="small" style="margin-left: 12px">
+              需要先配置 Access Token
+            </el-text>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
       <!-- 数据导入导出 -->
       <el-tab-pane label="数据管理" name="data">
         <div class="data-management">
@@ -216,6 +257,10 @@ const localChartTitle = ref({
   color: "#a3a5a9",
 });
 
+// 本地账号设置
+const localAccessToken = ref("");
+const localIncludeNSFW = ref(false);
+
 // 监听props变化，更新本地副本
 watch(
   () => props.axisLabels,
@@ -236,6 +281,39 @@ watch(
   },
   { deep: true, immediate: true }
 );
+
+// 从 localStorage 加载账号设置
+const loadAccountSettings = () => {
+  try {
+    const savedToken = localStorage.getItem("bangumi_access_token");
+    const savedNSFW = localStorage.getItem("bangumi_include_nsfw");
+    if (savedToken) {
+      localAccessToken.value = savedToken;
+    }
+    if (savedNSFW !== null) {
+      localIncludeNSFW.value = savedNSFW === "true";
+    }
+  } catch (error) {
+    console.error("加载账号设置失败:", error);
+  }
+};
+
+// 保存账号设置到 localStorage
+const saveAccountSettings = () => {
+  try {
+    localStorage.setItem("bangumi_access_token", localAccessToken.value);
+    localStorage.setItem("bangumi_include_nsfw", localIncludeNSFW.value.toString());
+  } catch (error) {
+    console.error("保存账号设置失败:", error);
+  }
+};
+
+// 监听对话框打开，加载设置
+watch(() => props.visible, (newVal) => {
+  if (newVal) {
+    loadAccountSettings();
+  }
+});
 
 // 导出数据
 const handleExport = () => {
@@ -368,7 +446,9 @@ const handleClearChart = () => {
 const handleConfirm = () => {
   emit("update-axis-labels", localAxisLabels.value);
   emit("update-chart-title", localChartTitle.value);
+  saveAccountSettings(); // 保存账号设置
   dialogVisible.value = false;
+  ElMessage.success("设置已保存");
 };
 
 // 取消
@@ -376,6 +456,7 @@ const handleCancel = () => {
   // 恢复原始值
   localAxisLabels.value = JSON.parse(JSON.stringify(props.axisLabels));
   localChartTitle.value = JSON.parse(JSON.stringify(props.chartTitle));
+  loadAccountSettings(); // 恢复账号设置
   dialogVisible.value = false;
 };
 </script>
@@ -415,5 +496,13 @@ const handleCancel = () => {
 
 .action-group :deep(.el-alert__description) p {
   margin: 0;
+}
+
+.account-form {
+  padding: 10px 0;
+}
+
+.account-form :deep(.el-input) {
+  max-width: 400px;
 }
 </style>

@@ -45,6 +45,8 @@ request.interceptors.response.use(
  * @param {Array<string>} params.filter.air_date - 播出日期
  * @param {Array<string>} params.filter.rating - 评分范围
  * @param {Array<string>} params.filter.rank - 排名范围
+ * @param {boolean|null} params.filter.nsfw - NSFW筛选: null=全部, true=仅R18, false=仅非R18（需要 Access Token）
+ * @param {string} params.accessToken - Access Token（可选，用于访问 NSFW 内容）
  * @returns {Promise}
  */
 export function searchSubjects({ 
@@ -52,9 +54,10 @@ export function searchSubjects({
   sort = 'match', 
   limit = 20, 
   offset = 0,
-  filter = {}
+  filter = {},
+  accessToken = null
 } = {}) {
-  return request({
+  const config = {
     url: '/v0/search/subjects',
     method: 'post',
     params: {
@@ -66,7 +69,16 @@ export function searchSubjects({
       sort,
       filter
     }
-  })
+  }
+
+  // 如果提供了 Access Token，添加到请求头
+  if (accessToken) {
+    config.headers = {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  }
+
+  return request(config)
 }
 
 /**
