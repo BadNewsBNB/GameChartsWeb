@@ -120,6 +120,9 @@
               alt="访问统计"
             />
           </p>
+          <p class="info-line" style="margin-top: 8px; font-size: 12px; color: #909399">
+            Last update: {{ buildTime }}
+          </p>
         </div>
       </div>
     </el-container>
@@ -169,6 +172,9 @@ const STORAGE_KEY_LIBRARY = "bangumi_game_library";
 const STORAGE_KEY_CHART = "bangumi_games_in_chart";
 const STORAGE_KEY_AXIS_LABELS = "bangumi_axis_labels";
 const STORAGE_KEY_CHART_TITLE = "bangumi_chart_title";
+
+// 构建时间（在构建时注入）
+const buildTime = __BUILD_TIME__;
 
 // 从本地存储加载数据
 const loadFromStorage = () => {
