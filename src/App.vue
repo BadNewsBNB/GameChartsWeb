@@ -114,13 +114,13 @@
               Bangumi
             </a>
           </p>
-          <p class="info-line" style="margin-top: 12px">
+          <p class="info-line" style="margin-top: 3px">
             <img
               src="https://hits.sh/games.marblephantasm.org.svg?style=flat&label=visitors&color=409eff&labelColor=555"
               alt="访问统计"
             />
           </p>
-          <p class="info-line" style="margin-top: 8px; font-size: 12px; color: #909399">
+          <p class="info-line" style="margin-top: 3px; font-size: 12px; color: #909399">
             Last update: {{ buildTime }}
           </p>
         </div>
