@@ -23,6 +23,13 @@ export default defineConfig({
       hour12: false
     }))
   },
+  build: {
+    // 在构建时移除 console.log
+    minify: 'esbuild',
+    esbuild: {
+      drop: ['console', 'debugger'], // 移除 console 和 debugger
+    }
+  },
   server: {
     port: 3000,
     open: true,

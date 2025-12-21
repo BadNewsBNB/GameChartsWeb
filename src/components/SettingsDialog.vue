@@ -441,21 +441,34 @@ const handleExportPackage = async () => {
     
     const zip = new JSZip();
     
-    // 收集所有自定义图片的游戏（type === 'custom'）
-    const customGames = [
-      ...props.gameLibrary.filter((g) => g.type === "custom"),
-      ...props.gamesInChart.filter((g) => g.type === "custom"),
+    // 收集所有自定义图片的游戏
+    // 检测条件：type === 'custom' 或 id 以 'local_' 开头
+    const isCustomGame = (game) => {
+      if (!game) return false;
+      const isCustomType = game.type === "custom" || (game.id && game.id.startsWith("local_"));
+      return isCustomType;
+    };
+    
+    // 收集所有自定义游戏（不管图片格式）
+    const allCustomGames = [
+      ...props.gameLibrary.filter(isCustomGame),
+      ...props.gamesInChart.filter(isCustomGame),
     ];
+    
+    console.log(`[导出] 检测到自定义游戏: ${allCustomGames.length} 个`);
+    console.log(`[导出] gameLibrary 总数: ${props.gameLibrary.length}, gamesInChart 总数: ${props.gamesInChart.length}`);
     
     // 去重（基于id）
     const uniqueCustomGames = [];
     const seenIds = new Set();
-    customGames.forEach((game) => {
+    allCustomGames.forEach((game) => {
       if (!seenIds.has(game.id)) {
         seenIds.add(game.id);
         uniqueCustomGames.push(game);
       }
     });
+    
+    console.log(`[导出] 去重后自定义游戏: ${uniqueCustomGames.length} 个`);
     
     // 将base64图片转换为文件并添加到zip
     const imageMap = {}; // 记录图片ID到文件名的映射
@@ -467,27 +480,101 @@ const handleExportPackage = async () => {
       
       for (let i = 0; i < uniqueCustomGames.length; i++) {
         const game = uniqueCustomGames[i];
-        if (game.image && game.image.startsWith("data:image")) {
-          // 提取base64数据
-          const base64Data = game.image.split(",")[1];
-          const mimeMatch = game.image.match(/data:image\/([^;]+)/);
-          const mimeType = mimeMatch ? mimeMatch[1] : "png";
-          const extension = mimeType === "jpeg" ? "jpg" : mimeType;
-          
-          // 生成文件名
-          const fileName = `image_${game.id}.${extension}`;
-          imageMap[game.id] = fileName;
-          
-          // 将base64转换为二进制并添加到zip
-          const binaryString = atob(base64Data);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let j = 0; j < binaryString.length; j++) {
-            bytes[j] = binaryString.charCodeAt(j);
+        
+        // 检查图片格式
+        if (!game.image) {
+          console.warn(`[导出] 游戏没有图片 (游戏ID: ${game.id})`);
+          continue;
+        }
+        
+        // 处理 base64 图片（包括 data:image 和 data:application/octet-stream）
+        if (game.image.startsWith("data:image") || game.image.startsWith("data:application/octet-stream")) {
+          try {
+            // 提取base64数据
+            const base64Data = game.image.split(",")[1];
+            
+            // 尝试从 MIME 类型获取图片格式
+            let mimeType = "png";
+            let extension = "png";
+            
+            if (game.image.startsWith("data:image")) {
+              const mimeMatch = game.image.match(/data:image\/([^;]+)/);
+              if (mimeMatch) {
+                mimeType = mimeMatch[1];
+                extension = mimeType === "jpeg" ? "jpg" : mimeType;
+              }
+            } else if (game.image.startsWith("data:application/octet-stream")) {
+              // 对于 application/octet-stream，尝试从 base64 数据推断图片类型
+              // 检查文件头（magic bytes）
+              try {
+                const binaryString = atob(base64Data.substring(0, 20)); // 只解码前20个字符用于检测
+                const bytes = new Uint8Array(binaryString.length);
+                for (let j = 0; j < binaryString.length; j++) {
+                  bytes[j] = binaryString.charCodeAt(j);
+                }
+                
+                // 检查常见的图片文件头
+                if (bytes[0] === 0xFF && bytes[1] === 0xD8) {
+                  // JPEG: FF D8
+                  mimeType = "jpeg";
+                  extension = "jpg";
+                } else if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+                  // PNG: 89 50 4E 47
+                  mimeType = "png";
+                  extension = "png";
+                } else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+                  // GIF: 47 49 46
+                  mimeType = "gif";
+                  extension = "gif";
+                } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+                  // WebP: RIFF...WEBP
+                  mimeType = "webp";
+                  extension = "webp";
+                } else {
+                  // 默认使用 jpg（因为大多数情况是 jpg）
+                  console.warn(`[导出] 无法识别图片类型，使用默认 jpg (游戏ID: ${game.id})`);
+                  mimeType = "jpeg";
+                  extension = "jpg";
+                }
+              } catch (e) {
+                console.warn(`[导出] 检测图片类型失败，使用默认 jpg (游戏ID: ${game.id}):`, e);
+                mimeType = "jpeg";
+                extension = "jpg";
+              }
+            }
+            
+            // 生成文件名
+            const fileName = `image_${game.id}.${extension}`;
+            imageMap[game.id] = fileName;
+            
+            // 将base64转换为二进制并添加到zip
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let j = 0; j < binaryString.length; j++) {
+              bytes[j] = binaryString.charCodeAt(j);
+            }
+            imagesFolder.file(fileName, bytes);
+            console.log(`[导出] 已添加base64图片: ${fileName} (游戏ID: ${game.id}, 类型: ${mimeType})`);
+          } catch (error) {
+            console.error(`[导出] 处理base64图片失败 (游戏ID: ${game.id}):`, error);
           }
-          imagesFolder.file(fileName, bytes);
+        } 
+        // 处理 images/ 路径（从方案包导入的，但可能没有被正确转换）
+        else if (game.image.startsWith("images/")) {
+          console.warn(`[导出] 发现 images/ 路径图片 (游戏ID: ${game.id}): ${game.image}，这可能是导入时未正确转换的图片`);
+          // 这种情况下，图片应该已经在之前的导入中被转换为base64了
+          // 如果还是 images/ 路径，说明导入有问题，但我们仍然需要导出它
+          // 由于无法从当前数据中获取原始文件，我们只能记录警告
+        }
+        // 其他格式（可能是URL或其他）
+        else {
+          console.warn(`[导出] 跳过非base64图片 (游戏ID: ${game.id}):`, game.image.substring(0, 50));
         }
       }
     }
+    
+    console.log(`[导出] 最终图片映射:`, Object.keys(imageMap).length, "张");
+    console.log(`[导出] 自定义游戏总数: ${uniqueCustomGames.length}, 成功导出图片: ${Object.keys(imageMap).length}`);
     
     // 准备导出数据，将custom游戏的图片路径替换为文件名
     const exportData = {
@@ -496,13 +583,15 @@ const handleExportPackage = async () => {
       axisLabels: props.axisLabels,
       chartTitle: props.chartTitle,
       gameLibrary: props.gameLibrary.map((game) => {
-        if (game.type === "custom" && imageMap[game.id]) {
+        // 使用 isCustomGame 函数判断，确保所有自定义游戏都被处理
+        if (isCustomGame(game) && imageMap[game.id]) {
           return { ...game, image: `images/${imageMap[game.id]}` };
         }
         return game;
       }),
       gamesInChart: props.gamesInChart.map((game) => {
-        if (game.type === "custom" && imageMap[game.id]) {
+        // 使用 isCustomGame 函数判断，确保所有自定义游戏都被处理
+        if (isCustomGame(game) && imageMap[game.id]) {
           return { ...game, image: `images/${imageMap[game.id]}` };
         }
         return game;
@@ -615,13 +704,15 @@ const handleImportPackage = async (file) => {
         console.log("已加载图片:", Object.keys(imageBase64Map));
         
         // 恢复游戏数据中的图片路径为base64
+        // 只要 image 是 images/ 路径，就尝试转换（不限制 type，因为导入的数据可能 type 字段不一致）
         const restoreImage = (game) => {
-          if (game.type === "custom" && game.image && game.image.startsWith("images/")) {
+          if (game && game.image && game.image.startsWith("images/")) {
             const fileName = game.image.replace("images/", "");
             if (imageBase64Map[fileName]) {
+              console.log(`[导入] 恢复图片: ${fileName} (游戏ID: ${game.id})`);
               return { ...game, image: imageBase64Map[fileName] };
             } else {
-              console.warn(`未找到图片文件: ${fileName}`, "可用文件:", Object.keys(imageBase64Map));
+              console.warn(`[导入] 未找到图片文件: ${fileName}`, "可用文件:", Object.keys(imageBase64Map));
             }
           }
           return game;
