@@ -425,6 +425,10 @@ const exportImage = async () => {
 
   // 🔥 保存原始缩放比例
   const originalScale = scale.value;
+  
+  // 声明备份变量在外部，确保错误处理可以访问
+  let imageBackups = [];
+  let containerBackups = [];
 
   try {
     ElMessage.info("正在生成图片...");
@@ -435,7 +439,7 @@ const exportImage = async () => {
     // 等待 DOM 更新完成
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // 隐藏不需要导出的元素（缩放控制、调整大小手柄、游戏名称徽章）
+    // 隐藏不需要导出的元素（缩放控制、调整大小手柄）
     const zoomControls = chartContainer.value.querySelector(".zoom-controls");
     const resizeHandles =
       chartContainer.value.querySelectorAll(".resize-handle");
@@ -444,11 +448,16 @@ const exportImage = async () => {
 
     if (zoomControls) zoomControls.style.display = "none";
     resizeHandles.forEach((handle) => (handle.style.display = "none"));
-    gameNameBadges.forEach((badge) => (badge.style.display = "none"));
+    
+    // 根据 showNamesAlways 设置决定是否显示标签
+    if (!showNamesAlways.value) {
+      gameNameBadges.forEach((badge) => (badge.style.display = "none"));
+    }
 
     // 处理图片的 object-fit，因为 html2canvas 不支持 object-fit
     const gameImages = chartContainer.value.querySelectorAll(".game-image img");
-    const imageBackups = [];
+    imageBackups = [];
+    containerBackups = [];
 
     gameImages.forEach((img) => {
       // 保存原始样式
@@ -457,54 +466,129 @@ const exportImage = async () => {
         originalWidth: img.style.width,
         originalHeight: img.style.height,
         originalObjectFit: img.style.objectFit,
+        originalPosition: img.style.position,
+        originalLeft: img.style.left,
+        originalTop: img.style.top,
+        originalTransform: img.style.transform,
+        originalMargin: img.style.margin,
+        originalPadding: img.style.padding,
+        originalClipPath: img.style.clipPath,
       };
       imageBackups.push(backup);
 
       // 获取容器尺寸
       const container = img.closest(".game-item");
-      if (container) {
+      const imageWrapper = img.closest(".game-image");
+      if (container && imageWrapper) {
+        // 保存容器原始样式
+        const containerBackup = {
+          element: imageWrapper,
+          originalOverflow: imageWrapper.style.overflow,
+          originalPosition: imageWrapper.style.position,
+          originalWidth: imageWrapper.style.width,
+          originalHeight: imageWrapper.style.height,
+        };
+        containerBackups.push(containerBackup);
+        
+        // 保存 .game-item 容器的 overflow 样式
+        const gameItemBackup = {
+          element: container,
+          originalOverflow: container.style.overflow,
+        };
+        containerBackups.push(gameItemBackup);
+        
+        // 确保容器有 overflow: hidden 来裁剪超出部分
+        imageWrapper.style.overflow = "hidden";
+        imageWrapper.style.position = "relative";
+        
         const containerWidth = container.offsetWidth;
         const containerHeight = container.offsetHeight;
         const naturalWidth = img.naturalWidth;
         const naturalHeight = img.naturalHeight;
 
-        // 计算缩放比例（模拟 object-fit: cover）
-        const containerRatio = containerWidth / containerHeight;
-        const imageRatio = naturalWidth / naturalHeight;
+        if (naturalWidth > 0 && naturalHeight > 0) {
+          // 计算缩放比例（模拟 object-fit: cover）
+          const containerRatio = containerWidth / containerHeight;
+          const imageRatio = naturalWidth / naturalHeight;
 
-        let renderWidth, renderHeight;
-        if (imageRatio > containerRatio) {
-          // 图片更宽，以高度为准
-          renderHeight = containerHeight;
-          renderWidth = (naturalWidth / naturalHeight) * containerHeight;
-        } else {
-          // 图片更高，以宽度为准
-          renderWidth = containerWidth;
-          renderHeight = (naturalHeight / naturalWidth) * containerWidth;
+          let renderWidth, renderHeight, clipX, clipY, clipWidth, clipHeight;
+          if (imageRatio > containerRatio) {
+            // 图片更宽，以高度为准，需要水平居中裁剪
+            renderHeight = containerHeight;
+            renderWidth = (naturalWidth / naturalHeight) * containerHeight;
+            // 计算需要裁剪的区域（居中裁剪）
+            clipWidth = containerWidth;
+            clipHeight = containerHeight;
+            clipX = (renderWidth - containerWidth) / 2;
+            clipY = 0;
+          } else {
+            // 图片更高，以宽度为准，需要垂直居中裁剪
+            renderWidth = containerWidth;
+            renderHeight = (naturalHeight / naturalWidth) * containerWidth;
+            clipWidth = containerWidth;
+            clipHeight = containerHeight;
+            clipX = 0;
+            clipY = (renderHeight - containerHeight) / 2;
+          }
+
+          // 设置图片样式以模拟 cover 效果
+          img.style.width = `${renderWidth}px`;
+          img.style.height = `${renderHeight}px`;
+          img.style.objectFit = "none";
+          img.style.objectPosition = "center";
+          img.style.position = "absolute";
+          // 图片从左上角开始，使用 clip-path 来裁剪超出部分
+          img.style.left = "0px";
+          img.style.top = "0px";
+          img.style.margin = "0";
+          img.style.padding = "0";
+          img.style.transform = "none";
+          // 使用 clip-path 来精确裁剪，确保只显示容器内的部分
+          img.style.clipPath = `inset(${clipY}px ${clipX}px ${clipY}px ${clipX}px)`;
+          
+          // 确保图片容器有明确的尺寸和 overflow: hidden
+          imageWrapper.style.width = `${containerWidth}px`;
+          imageWrapper.style.height = `${containerHeight}px`;
+          imageWrapper.style.overflow = "hidden";
+          imageWrapper.style.position = "relative";
+          
+          // 同时确保 .game-item 容器也有 overflow: hidden（虽然CSS已有，但确保生效）
+          container.style.overflow = "hidden";
         }
-
-        // 设置图片样式以模拟 cover 效果
-        img.style.width = `${renderWidth}px`;
-        img.style.height = `${renderHeight}px`;
-        img.style.objectFit = "none";
-        img.style.objectPosition = "center";
-        img.style.position = "relative";
-        img.style.left = `${(containerWidth - renderWidth) / 2}px`;
-        img.style.top = `${(containerHeight - renderHeight) / 2}px`;
       }
     });
 
+    // 等待图片样式应用完成
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     const canvas = await html2canvas(chartContainer.value, {
       backgroundColor: "#fafafa",
       scale: 2, // 提高清晰度
       useCORS: true,
       allowTaint: true,
+      logging: false,
     });
 
     // 恢复隐藏的元素
     if (zoomControls) zoomControls.style.display = "";
     resizeHandles.forEach((handle) => (handle.style.display = ""));
-    gameNameBadges.forEach((badge) => (badge.style.display = ""));
+    if (!showNamesAlways.value) {
+      gameNameBadges.forEach((badge) => (badge.style.display = ""));
+    }
+
+    // 恢复容器样式
+    containerBackups.forEach((backup) => {
+      backup.element.style.overflow = backup.originalOverflow;
+      if (backup.originalPosition !== undefined) {
+        backup.element.style.position = backup.originalPosition;
+      }
+      if (backup.originalWidth !== undefined) {
+        backup.element.style.width = backup.originalWidth;
+      }
+      if (backup.originalHeight !== undefined) {
+        backup.element.style.height = backup.originalHeight;
+      }
+    });
 
     // 恢复图片样式
     imageBackups.forEach((backup) => {
@@ -512,9 +596,13 @@ const exportImage = async () => {
       backup.element.style.height = backup.originalHeight;
       backup.element.style.objectFit = backup.originalObjectFit;
       backup.element.style.objectPosition = "";
-      backup.element.style.position = "";
-      backup.element.style.left = "";
-      backup.element.style.top = "";
+      backup.element.style.position = backup.originalPosition;
+      backup.element.style.left = backup.originalLeft;
+      backup.element.style.top = backup.originalTop;
+      backup.element.style.transform = backup.originalTransform;
+      backup.element.style.margin = backup.originalMargin;
+      backup.element.style.padding = backup.originalPadding;
+      backup.element.style.clipPath = backup.originalClipPath || "";
     });
 
     // 🔥 恢复原始缩放比例
@@ -542,8 +630,31 @@ const exportImage = async () => {
     if (zoomControls) zoomControls.style.display = "";
     if (resizeHandles)
       resizeHandles.forEach((handle) => (handle.style.display = ""));
-    if (gameNameBadges)
+    if (!showNamesAlways.value && gameNameBadges)
       gameNameBadges.forEach((badge) => (badge.style.display = ""));
+
+    // 恢复容器样式
+    containerBackups.forEach((backup) => {
+      backup.element.style.overflow = backup.originalOverflow;
+      backup.element.style.position = backup.originalPosition;
+      backup.element.style.width = "";
+      backup.element.style.height = "";
+    });
+
+    // 恢复图片样式
+    imageBackups.forEach((backup) => {
+      backup.element.style.width = backup.originalWidth;
+      backup.element.style.height = backup.originalHeight;
+      backup.element.style.objectFit = backup.originalObjectFit;
+      backup.element.style.objectPosition = "";
+      backup.element.style.position = backup.originalPosition;
+      backup.element.style.left = backup.originalLeft;
+      backup.element.style.top = backup.originalTop;
+      backup.element.style.transform = backup.originalTransform;
+      backup.element.style.margin = backup.originalMargin;
+      backup.element.style.padding = backup.originalPadding;
+      backup.element.style.clipPath = backup.originalClipPath || "";
+    });
 
     // 🔥 恢复原始缩放比例
     scale.value = originalScale;

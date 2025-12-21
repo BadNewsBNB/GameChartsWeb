@@ -441,54 +441,64 @@ const handleExportPackage = async () => {
     
     const zip = new JSZip();
     
-    // 收集所有自定义图片的游戏
+    // 判断是否为本地图片（base64格式）
+    const isLocalImage = (image) => {
+      if (!image || typeof image !== 'string') return false;
+      return image.startsWith("data:image") || image.startsWith("data:application/octet-stream");
+    };
+    
+    // 判断是否为自定义游戏（本地添加的）
     // 检测条件：type === 'custom' 或 id 以 'local_' 开头
     const isCustomGame = (game) => {
       if (!game) return false;
-      const isCustomType = game.type === "custom" || (game.id && game.id.startsWith("local_"));
+      // 确保 id 是字符串类型
+      const gameId = String(game.id || '');
+      const isCustomType = game.type === "custom" || gameId.startsWith("local_");
       return isCustomType;
     };
     
-    // 收集所有自定义游戏（不管图片格式）
-    const allCustomGames = [
-      ...props.gameLibrary.filter(isCustomGame),
-      ...props.gamesInChart.filter(isCustomGame),
+    // 收集所有有本地图片的游戏（包括自定义游戏和可能有本地图片的Bangumi游戏）
+    const allGamesWithLocalImages = [
+      ...props.gameLibrary.filter((game) => game && isLocalImage(game.image)),
+      ...props.gamesInChart.filter((game) => game && isLocalImage(game.image)),
     ];
     
-    console.log(`[导出] 检测到自定义游戏: ${allCustomGames.length} 个`);
+    console.log(`[导出] 检测到有本地图片的游戏: ${allGamesWithLocalImages.length} 个`);
     console.log(`[导出] gameLibrary 总数: ${props.gameLibrary.length}, gamesInChart 总数: ${props.gamesInChart.length}`);
     
-    // 去重（基于id）
-    const uniqueCustomGames = [];
+    // 去重（基于id，确保id转换为字符串）
+    const uniqueGamesWithLocalImages = [];
     const seenIds = new Set();
-    allCustomGames.forEach((game) => {
-      if (!seenIds.has(game.id)) {
-        seenIds.add(game.id);
-        uniqueCustomGames.push(game);
+    allGamesWithLocalImages.forEach((game) => {
+      const gameId = String(game.id || '');
+      if (!seenIds.has(gameId)) {
+        seenIds.add(gameId);
+        uniqueGamesWithLocalImages.push(game);
       }
     });
     
-    console.log(`[导出] 去重后自定义游戏: ${uniqueCustomGames.length} 个`);
+    console.log(`[导出] 去重后有本地图片的游戏: ${uniqueGamesWithLocalImages.length} 个`);
     
     // 将base64图片转换为文件并添加到zip
     const imageMap = {}; // 记录图片ID到文件名的映射
     let imagesFolder = null;
     
-    if (uniqueCustomGames.length > 0) {
+    if (uniqueGamesWithLocalImages.length > 0) {
       // 创建images文件夹
       imagesFolder = zip.folder("images");
       
-      for (let i = 0; i < uniqueCustomGames.length; i++) {
-        const game = uniqueCustomGames[i];
+      for (let i = 0; i < uniqueGamesWithLocalImages.length; i++) {
+        const game = uniqueGamesWithLocalImages[i];
+        const gameId = String(game.id || '');
         
-        // 检查图片格式
-        if (!game.image) {
-          console.warn(`[导出] 游戏没有图片 (游戏ID: ${game.id})`);
+        // 检查图片格式（只处理本地base64图片）
+        if (!game.image || !isLocalImage(game.image)) {
+          console.warn(`[导出] 跳过非本地图片 (游戏ID: ${gameId}):`, game.image?.substring(0, 50));
           continue;
         }
         
         // 处理 base64 图片（包括 data:image 和 data:application/octet-stream）
-        if (game.image.startsWith("data:image") || game.image.startsWith("data:application/octet-stream")) {
+        if (isLocalImage(game.image)) {
           try {
             // 提取base64数据
             const base64Data = game.image.split(",")[1];
@@ -532,20 +542,20 @@ const handleExportPackage = async () => {
                   extension = "webp";
                 } else {
                   // 默认使用 jpg（因为大多数情况是 jpg）
-                  console.warn(`[导出] 无法识别图片类型，使用默认 jpg (游戏ID: ${game.id})`);
+                  console.warn(`[导出] 无法识别图片类型，使用默认 jpg (游戏ID: ${gameId})`);
                   mimeType = "jpeg";
                   extension = "jpg";
                 }
               } catch (e) {
-                console.warn(`[导出] 检测图片类型失败，使用默认 jpg (游戏ID: ${game.id}):`, e);
+                console.warn(`[导出] 检测图片类型失败，使用默认 jpg (游戏ID: ${gameId}):`, e);
                 mimeType = "jpeg";
                 extension = "jpg";
               }
             }
             
-            // 生成文件名
-            const fileName = `image_${game.id}.${extension}`;
-            imageMap[game.id] = fileName;
+            // 生成文件名（使用字符串类型的id）
+            const fileName = `image_${gameId}.${extension}`;
+            imageMap[gameId] = fileName;
             
             // 将base64转换为二进制并添加到zip
             const binaryString = atob(base64Data);
@@ -554,45 +564,38 @@ const handleExportPackage = async () => {
               bytes[j] = binaryString.charCodeAt(j);
             }
             imagesFolder.file(fileName, bytes);
-            console.log(`[导出] 已添加base64图片: ${fileName} (游戏ID: ${game.id}, 类型: ${mimeType})`);
+            console.log(`[导出] 已添加base64图片: ${fileName} (游戏ID: ${gameId}, 类型: ${mimeType})`);
           } catch (error) {
-            console.error(`[导出] 处理base64图片失败 (游戏ID: ${game.id}):`, error);
+            console.error(`[导出] 处理base64图片失败 (游戏ID: ${gameId}):`, error);
           }
-        } 
-        // 处理 images/ 路径（从方案包导入的，但可能没有被正确转换）
-        else if (game.image.startsWith("images/")) {
-          console.warn(`[导出] 发现 images/ 路径图片 (游戏ID: ${game.id}): ${game.image}，这可能是导入时未正确转换的图片`);
-          // 这种情况下，图片应该已经在之前的导入中被转换为base64了
-          // 如果还是 images/ 路径，说明导入有问题，但我们仍然需要导出它
-          // 由于无法从当前数据中获取原始文件，我们只能记录警告
-        }
-        // 其他格式（可能是URL或其他）
-        else {
-          console.warn(`[导出] 跳过非base64图片 (游戏ID: ${game.id}):`, game.image.substring(0, 50));
         }
       }
     }
     
     console.log(`[导出] 最终图片映射:`, Object.keys(imageMap).length, "张");
-    console.log(`[导出] 自定义游戏总数: ${uniqueCustomGames.length}, 成功导出图片: ${Object.keys(imageMap).length}`);
+    console.log(`[导出] 有本地图片的游戏总数: ${uniqueGamesWithLocalImages.length}, 成功导出图片: ${Object.keys(imageMap).length}`);
     
-    // 准备导出数据，将custom游戏的图片路径替换为文件名
+    // 准备导出数据，只替换本地图片的路径为文件名，保留线上图片的URL
     const exportData = {
       version: "2.0", // 方案包版本
       exportTime: new Date().toISOString(),
       axisLabels: props.axisLabels,
       chartTitle: props.chartTitle,
       gameLibrary: props.gameLibrary.map((game) => {
-        // 使用 isCustomGame 函数判断，确保所有自定义游戏都被处理
-        if (isCustomGame(game) && imageMap[game.id]) {
-          return { ...game, image: `images/${imageMap[game.id]}` };
+        if (!game) return game;
+        const gameId = String(game.id || '');
+        // 只替换本地图片（base64），保留线上图片（URL）
+        if (isLocalImage(game.image) && imageMap[gameId]) {
+          return { ...game, image: `images/${imageMap[gameId]}` };
         }
         return game;
       }),
       gamesInChart: props.gamesInChart.map((game) => {
-        // 使用 isCustomGame 函数判断，确保所有自定义游戏都被处理
-        if (isCustomGame(game) && imageMap[game.id]) {
-          return { ...game, image: `images/${imageMap[game.id]}` };
+        if (!game) return game;
+        const gameId = String(game.id || '');
+        // 只替换本地图片（base64），保留线上图片（URL）
+        if (isLocalImage(game.image) && imageMap[gameId]) {
+          return { ...game, image: `images/${imageMap[gameId]}` };
         }
         return game;
       }),
