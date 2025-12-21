@@ -154,8 +154,12 @@
             </div>
 
             <!-- 游戏名称提示 -->
-
-            <div class="game-name-badge">{{ game.name }}</div>
+            <div 
+              class="game-name-badge" 
+              :class="{ 'always-visible': showNamesAlways }"
+            >
+              {{ game.name }}
+            </div>
           </div>
         </div>
 
@@ -268,6 +272,20 @@
                 </el-button>
               </el-button-group>
             </div>
+
+            <el-divider
+              direction="vertical"
+              style="height: 32px; margin: 0 8px"
+            />
+
+            <div class="control-group">
+              <span class="control-label">显示名称</span>
+              <el-switch
+                v-model="showNamesAlways"
+                @change="saveShowNamesSetting"
+                size="small"
+              />
+            </div>
           </template>
         </div>
 
@@ -358,6 +376,9 @@ const scale = ref(1);
 
 // 默认游戏大小（用于新添加的游戏）
 const defaultGameSize = ref(60);
+
+// 是否常态显示名称
+const showNamesAlways = ref(false);
 
 // 检查是否可以继续放大/缩小
 // 只有当所有图标都已经是最大值/最小值时才禁用按钮
@@ -962,6 +983,30 @@ const saveDefaultGameSize = () => {
   }
 };
 
+// 加载名称显示设置
+const loadShowNamesSetting = () => {
+  try {
+    const saved = localStorage.getItem("bangumi_show_names_always");
+    if (saved !== null) {
+      showNamesAlways.value = saved === "true";
+    }
+  } catch (error) {
+    console.error("加载名称显示设置失败:", error);
+  }
+};
+
+// 保存名称显示设置
+const saveShowNamesSetting = () => {
+  try {
+    localStorage.setItem(
+      "bangumi_show_names_always",
+      showNamesAlways.value.toString()
+    );
+  } catch (error) {
+    console.error("保存名称显示设置失败:", error);
+  }
+};
+
 // 监听默认游戏大小变化并保存
 watch(defaultGameSize, () => {
   saveDefaultGameSize();
@@ -1055,6 +1100,7 @@ onMounted(() => {
   loadDefaultGameSize();
   loadControlsPosition();
   loadControlsState();
+  loadShowNamesSetting();
 
   // 初始化边界值
   setTimeout(() => {
@@ -1300,6 +1346,10 @@ onUnmounted(() => {
 }
 
 .game-item:hover .game-name-badge {
+  opacity: 1;
+}
+
+.game-name-badge.always-visible {
   opacity: 1;
 }
 

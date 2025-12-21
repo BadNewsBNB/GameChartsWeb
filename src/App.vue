@@ -538,9 +538,16 @@ const handleBatchAddGames = (games) => {
 // 处理文件拖拽进入
 const handleDragOver = (event) => {
   event.preventDefault();
-  // 检查是否包含文件
-  if (event.dataTransfer.types.includes("Files")) {
+  // 检查是否包含真正的文件（从文件管理器拖入）
+  // 排除从游戏卡片拖出的情况（游戏卡片会设置 application/json 数据）
+  const hasFiles = event.dataTransfer.files && event.dataTransfer.files.length > 0;
+  const hasJsonData = event.dataTransfer.types.includes("application/json");
+  
+  // 只有当有真正的文件且不是从游戏卡片拖出时才显示提示
+  if (hasFiles && !hasJsonData) {
     isDragOver.value = true;
+  } else {
+    isDragOver.value = false;
   }
 };
 
@@ -557,6 +564,13 @@ const handleDragLeave = (event) => {
 const handleFileDrop = async (event) => {
   event.preventDefault();
   isDragOver.value = false;
+
+  // 检查是否是从游戏卡片拖出的（包含 application/json 数据）
+  const hasJsonData = event.dataTransfer.types.includes("application/json");
+  if (hasJsonData) {
+    // 这是从游戏卡片拖出的，不应该在这里处理，直接返回
+    return;
+  }
 
   const files = Array.from(event.dataTransfer.files);
   const imageFiles = files.filter((file) => file.type.startsWith("image/"));
