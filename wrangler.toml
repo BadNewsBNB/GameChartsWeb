@@ -1,4 +1,4 @@
-name = "gameschartweb"
+name = "gamechartsweb"
 compatibility_date = "2025-12-21"
 main = "workers-site/index.js"
 
