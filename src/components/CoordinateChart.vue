@@ -4,6 +4,9 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <el-button @click="openSettings" :icon="Setting"> 图表设置 </el-button>
+        <span style="font-size: 12px; color: #999; margin-left: 10px;line-height: 30px;"
+          >←数据导入、导出、账号设置在这里</span
+        >
       </div>
       <div class="toolbar-right">
         <el-button type="primary" @click="exportImage" :icon="Download">
@@ -13,8 +16,8 @@
     </div>
 
     <!-- 图表滚动容器 -->
-    <div 
-      class="chart-scroll-container" 
+    <div
+      class="chart-scroll-container"
       :class="{ 'is-dragging-scroll': isDraggingScroll }"
       ref="scrollContainer"
       @mousedown="startScrollDrag"
@@ -133,11 +136,14 @@
             @mousedown="startDrag($event, game)"
             @contextmenu.prevent="showContextMenu($event, game)"
           >
-            <el-image 
-            :src="game.image" 
-            fit="cover" 
-            :class="['game-image', { 'character-image': game.type === 'character' }]"
-          >
+            <el-image
+              :src="game.image"
+              fit="cover"
+              :class="[
+                'game-image',
+                { 'character-image': game.type === 'character' },
+              ]"
+            >
               <template #error>
                 <div class="image-error">
                   <el-icon><Picture /></el-icon>
@@ -154,8 +160,8 @@
             </div>
 
             <!-- 游戏名称提示 -->
-            <div 
-              class="game-name-badge" 
+            <div
+              class="game-name-badge"
               :class="{ 'always-visible': showNamesAlways }"
             >
               {{ game.name }}
@@ -425,7 +431,7 @@ const exportImage = async () => {
 
   // 🔥 保存原始缩放比例
   const originalScale = scale.value;
-  
+
   // 声明备份变量在外部，确保错误处理可以访问
   let imageBackups = [];
   let containerBackups = [];
@@ -437,7 +443,7 @@ const exportImage = async () => {
     scale.value = 1;
 
     // 等待 DOM 更新完成
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // 隐藏不需要导出的元素（缩放控制、调整大小手柄）
     const zoomControls = chartContainer.value.querySelector(".zoom-controls");
@@ -448,7 +454,7 @@ const exportImage = async () => {
 
     if (zoomControls) zoomControls.style.display = "none";
     resizeHandles.forEach((handle) => (handle.style.display = "none"));
-    
+
     // 根据 showNamesAlways 设置决定是否显示标签
     if (!showNamesAlways.value) {
       gameNameBadges.forEach((badge) => (badge.style.display = "none"));
@@ -489,18 +495,18 @@ const exportImage = async () => {
           originalHeight: imageWrapper.style.height,
         };
         containerBackups.push(containerBackup);
-        
+
         // 保存 .game-item 容器的 overflow 样式
         const gameItemBackup = {
           element: container,
           originalOverflow: container.style.overflow,
         };
         containerBackups.push(gameItemBackup);
-        
+
         // 确保容器有 overflow: hidden 来裁剪超出部分
         imageWrapper.style.overflow = "hidden";
         imageWrapper.style.position = "relative";
-        
+
         const containerWidth = container.offsetWidth;
         const containerHeight = container.offsetHeight;
         const naturalWidth = img.naturalWidth;
@@ -545,13 +551,13 @@ const exportImage = async () => {
           img.style.transform = "none";
           // 使用 clip-path 来精确裁剪，确保只显示容器内的部分
           img.style.clipPath = `inset(${clipY}px ${clipX}px ${clipY}px ${clipX}px)`;
-          
+
           // 确保图片容器有明确的尺寸和 overflow: hidden
           imageWrapper.style.width = `${containerWidth}px`;
           imageWrapper.style.height = `${containerHeight}px`;
           imageWrapper.style.overflow = "hidden";
           imageWrapper.style.position = "relative";
-          
+
           // 同时确保 .game-item 容器也有 overflow: hidden（虽然CSS已有，但确保生效）
           container.style.overflow = "hidden";
         }
@@ -559,8 +565,8 @@ const exportImage = async () => {
     });
 
     // 等待图片样式应用完成
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     const canvas = await html2canvas(chartContainer.value, {
       backgroundColor: "#fafafa",
       scale: 2, // 提高清晰度
@@ -713,10 +719,10 @@ const onDragMove = (event) => {
 // 拖拽结束
 const onDragEnd = () => {
   draggingGameId.value = null;
-  
+
   // 通知父组件拖动结束
   emit("drag-end");
-  
+
   document.removeEventListener("mousemove", onDragMove);
   document.removeEventListener("mouseup", onDragEnd);
 };
@@ -760,10 +766,10 @@ const onResizeMove = (event) => {
 // 调整大小结束
 const onResizeEnd = () => {
   resizingGameId.value = null;
-  
+
   // 通知父组件拖动结束
   emit("drag-end");
-  
+
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
 };
@@ -1144,40 +1150,35 @@ watch(defaultGameSize, () => {
 const startScrollDrag = (event) => {
   // 只响应左键
   if (event.button !== 0) return;
-  
+
   // 排除特定元素：游戏图标、工具栏、右键菜单等
   const target = event.target;
   const classList = target.classList;
-  
+
   // 如果点击的是以下元素，不启动滚动拖拽
   if (
     // 游戏相关元素
-    classList.contains('game-item') ||
-    classList.contains('game-image') ||
-    classList.contains('resize-handle') ||
-    classList.contains('game-name-badge') ||
-    target.closest('.game-item') ||
-    
+    classList.contains("game-item") ||
+    classList.contains("game-image") ||
+    classList.contains("resize-handle") ||
+    classList.contains("game-name-badge") ||
+    target.closest(".game-item") ||
     // 工具栏相关元素
-    classList.contains('zoom-controls') ||
-    classList.contains('drag-handle') ||
-    classList.contains('toggle-button') ||
-    classList.contains('control-group') ||
-    target.closest('.zoom-controls') ||
-    
+    classList.contains("zoom-controls") ||
+    classList.contains("drag-handle") ||
+    classList.contains("toggle-button") ||
+    classList.contains("control-group") ||
+    target.closest(".zoom-controls") ||
     // 右键菜单
-    classList.contains('context-menu') ||
-    target.closest('.context-menu') ||
-    
+    classList.contains("context-menu") ||
+    target.closest(".context-menu") ||
     // 图表标题
-    classList.contains('chart-title') ||
-    
+    classList.contains("chart-title") ||
     // El-Image 组件内部元素
-    target.closest('.el-image') ||
-    
+    target.closest(".el-image") ||
     // 按钮等交互元素
-    target.tagName === 'BUTTON' ||
-    target.closest('button')
+    target.tagName === "BUTTON" ||
+    target.closest("button")
   ) {
     return;
   }
