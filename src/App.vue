@@ -20,6 +20,8 @@
             @bring-to-front="handleBringToFront"
             @open-settings="openSettingsDialog"
             @add-game-to-chart="handleAddGameToChart"
+            @drag-start="handleChartDragStart"
+            @drag-end="handleChartDragEnd"
           />
         </div>
       </el-main>
@@ -167,6 +169,7 @@ import ImportDialog from "./components/ImportDialog.vue";
 import SettingsDialog from "./components/SettingsDialog.vue";
 import CoordinateChart from "./components/CoordinateChart.vue";
 import GameCard from "./components/GameCard.vue";
+import { smartSave, smartLoad, initDB } from "./utils/storage.js";
 
 // LocalStorage 键名
 const STORAGE_KEY_LIBRARY = "bangumi_game_library";
@@ -178,18 +181,28 @@ const STORAGE_KEY_CHART_TITLE = "bangumi_chart_title";
 const buildTime = __BUILD_TIME__;
 
 // 从本地存储加载数据
-const loadFromStorage = () => {
+const loadFromStorage = async () => {
   try {
-    const libraryData = localStorage.getItem(STORAGE_KEY_LIBRARY);
-    const chartData = localStorage.getItem(STORAGE_KEY_CHART);
+    // 初始化 IndexedDB（如果可用）
+    try {
+      await initDB();
+    } catch (error) {
+      console.warn("IndexedDB 初始化失败，将使用 localStorage:", error);
+    }
+
+    // 使用智能加载：如果包含自定义图片，从 IndexedDB 加载；否则从 localStorage 加载
+    const libraryData = await smartLoad("gameLibrary", STORAGE_KEY_LIBRARY);
+    const chartData = await smartLoad("gamesInChart", STORAGE_KEY_CHART);
+    
+    // 其他设置数据继续使用 localStorage（数据量小，不需要 IndexedDB）
     const axisLabelsData = localStorage.getItem(STORAGE_KEY_AXIS_LABELS);
     const chartTitleData = localStorage.getItem(STORAGE_KEY_CHART_TITLE);
 
     if (libraryData) {
-      gameLibrary.value = JSON.parse(libraryData);
+      gameLibrary.value = libraryData;
     }
     if (chartData) {
-      gamesInChart.value = JSON.parse(chartData);
+      gamesInChart.value = chartData;
     }
     if (axisLabelsData) {
       axisLabels.value = JSON.parse(axisLabelsData);
@@ -203,13 +216,13 @@ const loadFromStorage = () => {
 };
 
 // 保存到本地存储
-const saveToStorage = () => {
+const saveToStorage = async () => {
   try {
-    localStorage.setItem(
-      STORAGE_KEY_LIBRARY,
-      JSON.stringify(gameLibrary.value)
-    );
-    localStorage.setItem(STORAGE_KEY_CHART, JSON.stringify(gamesInChart.value));
+    // 使用智能保存：如果包含自定义图片，保存到 IndexedDB；否则保存到 localStorage
+    await smartSave("gameLibrary", gameLibrary.value, STORAGE_KEY_LIBRARY);
+    await smartSave("gamesInChart", gamesInChart.value, STORAGE_KEY_CHART);
+    
+    // 其他设置数据继续使用 localStorage（数据量小，不需要 IndexedDB）
     localStorage.setItem(
       STORAGE_KEY_AXIS_LABELS,
       JSON.stringify(axisLabels.value)
@@ -220,6 +233,36 @@ const saveToStorage = () => {
     );
   } catch (error) {
     console.error("保存本地数据失败:", error);
+    
+    // 检测是否是存储空间不足错误（这种情况应该很少发生，因为已经使用了 IndexedDB）
+    if ((error.name === "QuotaExceededError" || 
+        error.code === 22 || 
+        error.code === 1014 || 
+        (error.name === "NS_ERROR_DOM_QUOTA_REACHED" && error.code === 1014)) &&
+        !hasShownStorageWarning.value) {
+      // 标记已提示过
+      hasShownStorageWarning.value = true;
+      
+      // 使用 ElMessageBox 提示用户
+      ElMessageBox.confirm(
+        "本地存储空间不足，数据可能无法保存！\n\n⚠️ 重要提示：\n• 刷新页面后数据可能会丢失\n• 建议立即导出方案包备份数据\n\n操作步骤：\n1. 点击「打开设置」按钮\n2. 进入「数据管理」标签页\n3. 点击「导出方案包」按钮备份数据",
+        "存储空间不足",
+        {
+          confirmButtonText: "打开设置",
+          cancelButtonText: "我知道了",
+          type: "warning",
+          dangerouslyUseHTMLString: false,
+        }
+      ).then(() => {
+        // 用户点击了"打开设置"
+        openSettingsDialog();
+      }).catch(() => {
+        // 用户点击了"我知道了"或关闭对话框
+      });
+    } else {
+      // 其他错误，只记录日志
+      ElMessage.error("保存数据失败：" + error.message);
+    }
   }
 };
 
@@ -278,6 +321,12 @@ const settingsDialogVisible = ref(false);
 // 拖拽状态
 const isDragOver = ref(false);
 
+// 存储空间不足提示标记（本次会话只提示一次）
+const hasShownStorageWarning = ref(false);
+
+// 拖动状态标记（拖动时不保存，避免频繁保存影响性能）
+const isDragging = ref(false);
+
 // 计算滚动区域高度
 const scrollbarHeight = computed(() => {
   return "calc(100vh - 180px)";
@@ -319,7 +368,7 @@ const handleUpdateChartTitle = (newTitle) => {
 };
 
 // 导入数据
-const handleImportData = (data) => {
+const handleImportData = async (data) => {
   try {
     // 更新所有数据
     if (data.axisLabels) {
@@ -342,8 +391,8 @@ const handleImportData = (data) => {
       gamesInChart.value = data.gamesInChart;
     }
 
-    // 立即保存到本地存储
-    saveToStorage();
+    // 立即保存到本地存储（会自动判断使用 IndexedDB 还是 localStorage）
+    await saveToStorage();
   } catch (error) {
     console.error("导入数据失败:", error);
     ElMessage.error("导入数据失败：" + error.message);
@@ -448,6 +497,29 @@ const handleUpdateGame = (updatedGame) => {
   }
 };
 
+// 标记开始拖动（从 CoordinateChart 组件接收，用于坐标系内的拖动）
+const handleChartDragStart = () => {
+  isDragging.value = true;
+  // 清除之前的保存定时器
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+};
+
+// 标记拖动结束（从 CoordinateChart 组件接收）
+const handleChartDragEnd = () => {
+  isDragging.value = false;
+  // 拖动结束后立即保存一次（不使用防抖，立即保存）
+  saveToStorage()
+    .then(() => {
+      console.log("[App] 拖动结束，保存成功");
+    })
+    .catch((error) => {
+      console.error("[App] 拖动结束，保存失败:", error);
+    });
+};
+
 // 从坐标系中移除游戏
 const handleRemoveFromChart = (gameId) => {
   const index = gamesInChart.value.findIndex((g) => g.id === gameId);
@@ -538,17 +610,19 @@ const handleBatchAddGames = (games) => {
 // 处理文件拖拽进入
 const handleDragOver = (event) => {
   event.preventDefault();
-  // 检查是否包含真正的文件（从文件管理器拖入）
+  // 检查是否包含文件类型（从文件管理器拖入）
   // 排除从游戏卡片拖出的情况（游戏卡片会设置 application/json 数据）
-  const hasFiles = event.dataTransfer.files && event.dataTransfer.files.length > 0;
+  const hasFilesType = event.dataTransfer.types.includes("Files");
   const hasJsonData = event.dataTransfer.types.includes("application/json");
   
-  // 只有当有真正的文件且不是从游戏卡片拖出时才显示提示
-  if (hasFiles && !hasJsonData) {
+  // 只有当有文件类型且不是从游戏卡片拖出时才显示提示
+  if (hasFilesType && !hasJsonData) {
     isDragOver.value = true;
-  } else {
+  } else if (!hasFilesType) {
+    // 如果没有文件类型，确保不显示提示
     isDragOver.value = false;
   }
+  // 如果有文件类型但同时也包含json数据，说明是从游戏卡片拖出的，不显示提示
 };
 
 // 处理文件拖拽离开
@@ -638,18 +712,44 @@ const addImageAsGame = (file) => {
   });
 };
 
+// 防抖保存函数
+let saveTimer = null;
+const debouncedSave = () => {
+  // 如果正在拖动，不保存
+  if (isDragging.value) {
+    return;
+  }
+  
+  // 清除之前的定时器
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+  }
+  
+  // 延迟 500ms 保存（防抖）
+  saveTimer = setTimeout(() => {
+    saveToStorage()
+      .then(() => {
+        console.log("[App] 自动保存成功");
+      })
+      .catch((error) => {
+        // 错误已在 saveToStorage 中处理
+        console.error("[App] 自动保存失败:", error);
+      });
+  }, 500);
+};
+
 // 监听数据变化并保存
 watch(
   [gameLibrary, gamesInChart, axisLabels, chartTitle],
   () => {
-    saveToStorage();
+    debouncedSave();
   },
   { deep: true }
 );
 
 // 组件挂载时加载数据
-onMounted(() => {
-  loadFromStorage();
+onMounted(async () => {
+  await loadFromStorage();
 });
 </script>
 

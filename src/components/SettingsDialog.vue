@@ -181,6 +181,34 @@
           <el-divider />
 
           <div class="action-group">
+            <h4>导出方案（含图片）</h4>
+            <p class="desc">导出为ZIP文件，包含JSON数据和所有自行添加的图片</p>
+            <el-button type="primary" @click="handleExportPackage" :icon="Download">
+              导出方案包
+            </el-button>
+          </div>
+
+          <el-divider />
+
+          <div class="action-group">
+            <h4>导入方案（含图片）</h4>
+            <p class="desc">从ZIP文件恢复数据（会覆盖当前数据）</p>
+            <el-upload
+              ref="packageUploadRef"
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".zip"
+              :on-change="handleImportPackage"
+            >
+              <el-button type="success" :icon="Upload">
+                选择方案包导入
+              </el-button>
+            </el-upload>
+          </div>
+
+          <el-divider />
+
+          <div class="action-group">
             <h4>清除图表</h4>
             <p class="desc">清除坐标系中的游戏</p>
             <el-button type="warning" @click="handleClearChart" :icon="Delete">
@@ -202,6 +230,7 @@
 import { ref, computed, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Download, Upload, Delete } from "@element-plus/icons-vue";
+import JSZip from "jszip";
 
 const props = defineProps({
   visible: {
@@ -241,6 +270,8 @@ const dialogVisible = computed({
 });
 
 const activeTab = ref("title");
+const uploadRef = ref(null);
+const packageUploadRef = ref(null);
 
 // 本地坐标轴标签副本
 const localAxisLabels = ref({
@@ -401,6 +432,227 @@ const handleImportFile = (file) => {
   };
 
   reader.readAsText(file.raw);
+};
+
+// 导出方案包（包含图片）
+const handleExportPackage = async () => {
+  try {
+    ElMessage.info("正在打包方案...");
+    
+    const zip = new JSZip();
+    
+    // 收集所有自定义图片的游戏（type === 'custom'）
+    const customGames = [
+      ...props.gameLibrary.filter((g) => g.type === "custom"),
+      ...props.gamesInChart.filter((g) => g.type === "custom"),
+    ];
+    
+    // 去重（基于id）
+    const uniqueCustomGames = [];
+    const seenIds = new Set();
+    customGames.forEach((game) => {
+      if (!seenIds.has(game.id)) {
+        seenIds.add(game.id);
+        uniqueCustomGames.push(game);
+      }
+    });
+    
+    // 将base64图片转换为文件并添加到zip
+    const imageMap = {}; // 记录图片ID到文件名的映射
+    let imagesFolder = null;
+    
+    if (uniqueCustomGames.length > 0) {
+      // 创建images文件夹
+      imagesFolder = zip.folder("images");
+      
+      for (let i = 0; i < uniqueCustomGames.length; i++) {
+        const game = uniqueCustomGames[i];
+        if (game.image && game.image.startsWith("data:image")) {
+          // 提取base64数据
+          const base64Data = game.image.split(",")[1];
+          const mimeMatch = game.image.match(/data:image\/([^;]+)/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "png";
+          const extension = mimeType === "jpeg" ? "jpg" : mimeType;
+          
+          // 生成文件名
+          const fileName = `image_${game.id}.${extension}`;
+          imageMap[game.id] = fileName;
+          
+          // 将base64转换为二进制并添加到zip
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let j = 0; j < binaryString.length; j++) {
+            bytes[j] = binaryString.charCodeAt(j);
+          }
+          imagesFolder.file(fileName, bytes);
+        }
+      }
+    }
+    
+    // 准备导出数据，将custom游戏的图片路径替换为文件名
+    const exportData = {
+      version: "2.0", // 方案包版本
+      exportTime: new Date().toISOString(),
+      axisLabels: props.axisLabels,
+      chartTitle: props.chartTitle,
+      gameLibrary: props.gameLibrary.map((game) => {
+        if (game.type === "custom" && imageMap[game.id]) {
+          return { ...game, image: `images/${imageMap[game.id]}` };
+        }
+        return game;
+      }),
+      gamesInChart: props.gamesInChart.map((game) => {
+        if (game.type === "custom" && imageMap[game.id]) {
+          return { ...game, image: `images/${imageMap[game.id]}` };
+        }
+        return game;
+      }),
+      imageMap, // 保存映射关系
+    };
+    
+    // 添加JSON文件到zip
+    const dataStr = JSON.stringify(exportData, null, 2);
+    zip.file("data.json", dataStr);
+    
+    // 生成zip文件
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    
+    // 生成文件名
+    const chartTitle = props.chartTitle?.text || "游戏排名图";
+    const timestamp = new Date().getTime();
+    const fileName = `${chartTitle}_方案包_${timestamp}.zip`;
+    
+    // 下载
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    const imageCount = Object.keys(imageMap).length;
+    if (imageCount > 0) {
+      ElMessage.success(`导出成功！包含 ${imageCount} 张图片`);
+    } else {
+      ElMessage.success("导出成功！");
+    }
+  } catch (error) {
+    console.error("导出方案包失败:", error);
+    ElMessage.error("导出方案包失败：" + error.message);
+  }
+};
+
+// 导入方案包（包含图片）
+const handleImportPackage = async (file) => {
+  try {
+    ElMessage.info("正在解压方案包...");
+    
+    const zip = new JSZip();
+    const zipData = await zip.loadAsync(file.raw);
+    
+    // 读取JSON数据
+    const dataFile = zipData.file("data.json");
+    if (!dataFile) {
+      throw new Error("方案包中缺少 data.json 文件");
+    }
+    
+    const dataStr = await dataFile.async("string");
+    const data = JSON.parse(dataStr);
+    
+    // 验证数据格式
+    if (!data.gameLibrary || !data.gamesInChart || !data.axisLabels) {
+      throw new Error("JSON格式不正确，缺少必要字段");
+    }
+    
+    // 如果没有 chartTitle，使用默认值
+    if (!data.chartTitle) {
+      data.chartTitle = {
+        text: "",
+        fontSize: 24,
+        positionX: "center",
+        positionY: "top",
+        color: "#303133",
+      };
+    }
+    
+    // 读取images文件夹中的图片并转换为base64
+    const imagesFolder = zipData.folder("images");
+    if (imagesFolder) {
+      // 获取所有文件（包括子文件夹中的文件）
+      const imageBase64Map = {};
+      const filePromises = [];
+      
+      // 遍历zip中的所有文件，查找images文件夹下的文件
+      zipData.forEach((relativePath, file) => {
+        if (!file.dir && relativePath.startsWith("images/")) {
+          // 提取文件名（去除images/前缀）
+          const fileName = relativePath.replace("images/", "");
+          
+          // 创建异步任务读取文件
+          const filePromise = (async () => {
+            try {
+              const blob = await file.async("blob");
+              const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              imageBase64Map[fileName] = base64;
+            } catch (error) {
+              console.error(`读取图片 ${fileName} 失败:`, error);
+            }
+          })();
+          
+          filePromises.push(filePromise);
+        }
+      });
+      
+      // 等待所有文件读取完成
+      await Promise.all(filePromises);
+      
+      if (Object.keys(imageBase64Map).length > 0) {
+        console.log("已加载图片:", Object.keys(imageBase64Map));
+        
+        // 恢复游戏数据中的图片路径为base64
+        const restoreImage = (game) => {
+          if (game.type === "custom" && game.image && game.image.startsWith("images/")) {
+            const fileName = game.image.replace("images/", "");
+            if (imageBase64Map[fileName]) {
+              return { ...game, image: imageBase64Map[fileName] };
+            } else {
+              console.warn(`未找到图片文件: ${fileName}`, "可用文件:", Object.keys(imageBase64Map));
+            }
+          }
+          return game;
+        };
+        
+        data.gameLibrary = data.gameLibrary.map(restoreImage);
+        data.gamesInChart = data.gamesInChart.map(restoreImage);
+      }
+    }
+    
+    ElMessageBox.confirm(
+      "导入方案包将覆盖当前所有数据，是否继续？",
+      "确认导入",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
+    )
+      .then(() => {
+        emit("import-data", data);
+        ElMessage.success("导入成功！");
+        dialogVisible.value = false;
+      })
+      .catch(() => {
+        // 用户取消
+      });
+  } catch (error) {
+    console.error("导入方案包失败:", error);
+    ElMessage.error("导入方案包失败：" + error.message);
+  }
 };
 
 // 清除图表

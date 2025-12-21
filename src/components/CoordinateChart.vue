@@ -348,6 +348,8 @@ const emit = defineEmits([
   "bring-to-front",
   "open-settings",
   "add-game-to-chart",
+  "drag-start",
+  "drag-end",
 ]);
 
 // 容器引用
@@ -570,6 +572,9 @@ const startDrag = (event, game) => {
   dragStartPos.value = { x: event.clientX, y: event.clientY };
   gameStartPos.value = { x: game.x, y: game.y };
 
+  // 通知父组件开始拖动
+  emit("drag-start");
+
   document.addEventListener("mousemove", onDragMove);
   document.addEventListener("mouseup", onDragEnd);
 
@@ -597,6 +602,10 @@ const onDragMove = (event) => {
 // 拖拽结束
 const onDragEnd = () => {
   draggingGameId.value = null;
+  
+  // 通知父组件拖动结束
+  emit("drag-end");
+  
   document.removeEventListener("mousemove", onDragMove);
   document.removeEventListener("mouseup", onDragEnd);
 };
@@ -606,6 +615,9 @@ const startResize = (event, game) => {
   resizingGameId.value = game.id;
   resizeStartSize.value = game.size || defaultGameSize.value;
   resizeStartPos.value = { x: event.clientX, y: event.clientY };
+
+  // 通知父组件开始拖动（调整大小也算拖动）
+  emit("drag-start");
 
   document.addEventListener("mousemove", onResizeMove);
   document.addEventListener("mouseup", onResizeEnd);
@@ -637,6 +649,10 @@ const onResizeMove = (event) => {
 // 调整大小结束
 const onResizeEnd = () => {
   resizingGameId.value = null;
+  
+  // 通知父组件拖动结束
+  emit("drag-end");
+  
   document.removeEventListener("mousemove", onResizeMove);
   document.removeEventListener("mouseup", onResizeEnd);
 };
