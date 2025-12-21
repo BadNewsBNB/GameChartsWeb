@@ -1,0 +1,8 @@
+{
+  "name": "gameschartweb",
+  "compatibility_date": "2025-12-21",
+  "assets": {
+    "directory": "./dist"
+  }
+}
+
